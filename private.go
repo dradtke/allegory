@@ -20,6 +20,7 @@ var (
 	event al.Event
 
 	messengers = make(map[Process]chan interface{})
+    atexit = make([]func(), 0)
 )
 
 // Display() returns a reference to the game's display.

@@ -42,7 +42,6 @@ func Loop() {
             }
 		}
 
-
 	eventHandled:
 		if running && ticking && eventQueue.IsEmpty() {
 			Broadcast(&tick{0})
@@ -55,6 +54,12 @@ func Loop() {
 			ticking = false
 		}
 	}
+
+	al.ClearToColor(config.BlankColor())
+	al.FlipDisplay()
+
+	display.SetWindowTitle("Shutting down...")
+	//console.Save()
 
 	// Tell all processes to quit immediately, then wait
 	// for them to finish before exiting.

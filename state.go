@@ -10,8 +10,7 @@ type GameState interface {
 	Leave()
 }
 
-// NewState() changes the game state.
-func NewState(s GameState) {
+func newState(s GameState) {
 	if state != nil {
 		state.Leave()
 	}
@@ -19,16 +18,26 @@ func NewState(s GameState) {
 	state.Enter()
 }
 
-// NewStateDelayed() waits for all processes
+// NewState() waits for all processes
 // to finish without blocking the current goroutine,
 // then changes the game state.
-func NewStateDelayed(s GameState) {
+func NewState(s GameState) {
 	go func() {
 		for processes.Len() > 0 {
 			runtime.Gosched()
 		}
 		NewState(s)
 	}()
+}
+
+// NewStateNow() tells all processes to quit,
+// waits for them to finish, then changes the game state.
+func NewStateNow(s GameState) {
+    Broadcast(quit{})
+    for processes.Len() > 0 {
+        runtime.Gosched()
+    }
+    newState(s)
 }
 
 type BlankState struct{}
