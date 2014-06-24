@@ -1,13 +1,13 @@
+// Package console implements an in-game console for logging and running commands.
 package console
 
 import (
 	"container/list"
 	"fmt"
 	al "github.com/dradtke/go-allegro/allegro"
+	"github.com/dradtke/gopher/bus"
 	"github.com/dradtke/gopher/config"
-	//"github.com/dradtke/go-allegro/example/ongoing/src/game"
-	//"github.com/dradtke/go-allegro/example/ongoing/src/util"
-	"github.com/dradtke/gopher/subsystems/graphics"
+	"github.com/dradtke/gopher/graphics"
 	"io"
 	"os"
 	"unicode"
@@ -19,15 +19,12 @@ const (
 )
 
 var (
-	log      list.List
-	visible  bool
-	is_blunk bool
-	blinker  *al.Timer
-	cmd      string
-    tmp string
-
+	blinker   *al.Timer
+	cmd       string
 	color_map map[string]al.Color
-    submitter al.EventSource
+	is_blunk  bool
+	log       list.List
+	visible   bool
 )
 
 type message struct {
@@ -49,48 +46,6 @@ func getSummary() (sum []message) {
 		sum = append(sum, e.Value.(message))
 	}
 	return
-}
-
-func HandleEvent(ev interface{}) bool {
-    switch e := ev.(type) {
-
-    case al.KeyDownEvent:
-        switch e.KeyCode() {
-
-        case al.KEY_F12:
-            visible = !visible
-            return true
-        }
-
-    case al.KeyCharEvent:
-        if visible {
-            switch e.KeyCode() {
-
-            case al.KEY_BACKSPACE:
-                backspaceCmd()
-                return true
-
-            case al.KEY_ENTER:
-                submitCmd()
-                return true
-
-            default:
-                unichar := rune(e.Unichar())
-                if unicode.IsPrint(unichar) {
-                    cmd += string(unichar)
-                    return true
-                }
-            }
-        }
-
-    case al.TimerEvent:
-        if e.Source() == blinker {
-            is_blunk = !is_blunk
-            return true
-        }
-    }
-
-    return false
 }
 
 func Debug(msg string) {
@@ -118,23 +73,11 @@ func Errorf(msg string, v ...interface{}) {
 }
 
 func Fatal(msg string) {
-    log.PushBack(message{level: "FATAL", text: msg})
+	log.PushBack(message{level: "FATAL", text: msg})
 }
 
 func Fatalf(msg string, v ...interface{}) {
-    log.PushBack(message{level: "FATAL", text: fmt.Sprintf(msg, v...)})
-}
-
-func Render() {
-	if !visible {
-		return
-	}
-	sum := getSummary()
-	lines := make([]graphics.Line, len(sum))
-	for i, msg := range sum {
-		lines[i] = msg.Line()
-	}
-	graphics.RenderConsole(lines, cmd, is_blunk)
+	log.PushBack(message{level: "FATAL", text: fmt.Sprintf(msg, v...)})
 }
 
 func Init(eventQueue *al.EventQueue) {
@@ -151,9 +94,60 @@ func Init(eventQueue *al.EventQueue) {
 		"ERROR": al.MapRGB(255, 0, 0),
 		"FATAL": al.MapRGB(255, 0, 0),
 	}
+}
 
-    submitter.InitUserEventSource()
-    eventQueue.RegisterEventSource(&submitter)
+func Render() {
+	if !visible {
+		return
+	}
+	sum := getSummary()
+	lines := make([]graphics.Line, len(sum))
+	for i, msg := range sum {
+		lines[i] = msg.Line()
+	}
+	graphics.RenderConsole(lines, cmd, is_blunk)
+}
+
+func HandleEvent(ev interface{}) bool {
+	switch e := ev.(type) {
+
+	case al.KeyDownEvent:
+		switch e.KeyCode() {
+
+		case al.KEY_F12:
+			visible = !visible
+			return true
+		}
+
+	case al.KeyCharEvent:
+		if visible {
+			switch e.KeyCode() {
+
+			case al.KEY_BACKSPACE:
+				backspaceCmd()
+				return true
+
+			case al.KEY_ENTER:
+				submitCmd()
+				return true
+
+			default:
+				unichar := rune(e.Unichar())
+				if unicode.IsPrint(unichar) {
+					cmd += string(unichar)
+					return true
+				}
+			}
+		}
+
+	case al.TimerEvent:
+		if e.Source() == blinker {
+			is_blunk = !is_blunk
+			return true
+		}
+	}
+
+	return false
 }
 
 func Save() {
@@ -167,6 +161,10 @@ func Save() {
 	}
 }
 
+func Toggle() {
+	visible = !visible
+}
+
 func backspaceCmd() {
 	if cmd == "" {
 		return
@@ -174,21 +172,10 @@ func backspaceCmd() {
 	cmd = cmd[:len(cmd)-1]
 }
 
-/* -- Submitter -- */
-
-
 func submitCmd() {
 	if cmd == "" {
 		return
 	}
-    /*
-    if err := submitter.EmitUserEvent(util.Store(game.NewCommandEvent(cmd))); err != nil {
-        Errorf("Failed to submit command: %s", err.Error())
-    }
-    */
+	bus.Signal(bus.ConsoleCommandEvent, cmd)
 	cmd = ""
-}
-
-func Toggle() {
-    visible = !visible
 }

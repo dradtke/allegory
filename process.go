@@ -1,18 +1,13 @@
 package gopher
 
 import (
-	"errors"
 	"fmt"
 	"os"
 )
 
 type Process interface {
 	// HandleMessage() handles incoming messages.
-	HandleMessage(msg interface{})
-
-	// HandleEvent() handles incoming events, returning true
-	// if it should be consumed by this process.
-	HandleEvent(ev interface{}) bool
+	HandleMessage(msg interface{}) error
 
 	// Tick() tells the process to step forward one frame.
 	// Returning a non-nil error value will cause the process
@@ -20,40 +15,41 @@ type Process interface {
 	// return value should be `true` to indicate that it needs
 	// to continue processing, or `false` to indicate a
 	// successful termination.
+    // It is essentially a special case of HandleMessage().
 	Tick(delta float32) (bool, error)
 }
 
 type ProcessCloser interface {
-	// Cleanup() is an optional method for processes that
+	// Cleanup() is an optional method for _processes that
 	// need to do some cleanup once they're done.
 	Cleanup()
 }
 
 type ProcessParent interface {
-	// Next() is an optional method for processes that
+	// Next() is an optional method for _processes that
 	// need to kick off another process once they're done.
 	Next() Process
 }
 
 // Notify() sends an arbitrary message to a process.
 func Notify(p Process, msg interface{}) {
-	if ch, ok := messengers[p]; ok {
+	if ch, ok := _messengers[p]; ok {
 		ch <- msg
+	}
+}
+
+// NotifyAll() sends an arbitrary message to all running
+// _processes.
+func NotifyAll(msg interface{}) {
+	for e := _processes.Front(); e != nil; e = e.Next() {
+		Notify(e.Value.(Process), msg)
 	}
 }
 
 // Close() sends a Quit message to a process.
 func Close(p Process) {
-	if ch, ok := messengers[p]; ok {
+	if ch, ok := _messengers[p]; ok {
 		ch <- &quit{}
-	}
-}
-
-// Broadcast() sends an arbitrary message to all running
-// processes.
-func Broadcast(msg interface{}) {
-	for e := processes.Front(); e != nil; e = e.Next() {
-		Notify(e.Value.(Process), msg)
 	}
 }
 
@@ -63,15 +59,15 @@ func Broadcast(msg interface{}) {
 // handler, with two special cases:
 //
 //    1. Quit messages, which cause the process to quit and
-//       clean up without kicking off additional processes
+//       clean up without kicking off additional _processes
 //
 //    2. Tick messages, which simply tell the process to
 //       process one frame.
 //
 func RunProcess(p Process) {
 	ch := make(chan interface{})
-	messengers[p] = ch
-	e := processes.PushBack(p)
+	_messengers[p] = ch
+	e := _processes.PushBack(p)
 
 	go func() {
 		var (
@@ -96,7 +92,9 @@ func RunProcess(p Process) {
 				}
 
 			default:
-				p.HandleMessage(msg)
+                if err := p.HandleMessage(msg); err != nil {
+                    fmt.Fprintf(os.Stderr, "Process handled %v with error message '%s'\n", err.Error())
+                }
 			}
 		}
 
@@ -111,9 +109,9 @@ func RunProcess(p Process) {
 			}
 		}
 
-		processes.Remove(e)
+		_processes.Remove(e)
 		close(ch)
-		delete(messengers, p)
+		delete(_messengers, p)
 	}()
 }
 
@@ -142,11 +140,8 @@ type DelayProcess struct {
 	Successor Process
 }
 
-func (p *DelayProcess) HandleMessage(msg interface{}) {
-}
-
-func (p *DelayProcess) HandleEvent(msg interface{}) bool {
-	return false
+func (p *DelayProcess) HandleMessage(msg interface{}) error {
+    return nil
 }
 
 func (p *DelayProcess) Tick(delta float32) (bool, error) {
@@ -155,7 +150,7 @@ func (p *DelayProcess) Tick(delta float32) (bool, error) {
 		if p.Activate != nil {
 			p.Activate()
 		}
-		return false, errors.New("success!")
+		return false, nil
 	}
 	return true, nil
 }

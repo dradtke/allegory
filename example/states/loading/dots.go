@@ -2,6 +2,8 @@ package loading
 
 import (
 	"github.com/dradtke/gopher"
+	"github.com/dradtke/gopher/bus"
+	"github.com/dradtke/gopher/example/events"
 )
 
 type LoadingDotAnimation struct{
@@ -9,11 +11,8 @@ type LoadingDotAnimation struct{
     DotDelay int
 }
 
-func (p *LoadingDotAnimation) HandleMessage(msg interface{}) {
-}
-
-func (p *LoadingDotAnimation) HandleEvent(ev interface{}) bool {
-    return false
+func (p *LoadingDotAnimation) HandleMessage(msg interface{}) error {
+    return nil
 }
 
 func (p *LoadingDotAnimation) Tick(delta float32) (bool, error) {
@@ -25,6 +24,7 @@ func (p *LoadingDotAnimation) Tick(delta float32) (bool, error) {
         } else {
             state.dots += "."
         }
+        bus.Signal(events.DotNotifyEvent, state.dots)
         p.timer = 0
     }
     return true, nil

@@ -9,31 +9,30 @@ import (
 const FPS int = 60
 
 var (
-	display    *al.Display
-	eventQueue *al.EventQueue
-	fpsTimer   *al.Timer
+	_display    *al.Display
+	_eventQueue *al.EventQueue
+	_fpsTimer   *al.Timer
 
-	processes list.List
-	mailboxes list.List
+	_processes list.List
+	_views     list.List
+	_messengers = make(map[Process]chan interface{})
 
-	state GameState
-	event al.Event
-
-	messengers = make(map[Process]chan interface{})
-    atexit = make([]func(), 0)
+	_state GameState
+	_event al.Event
+	_atexit     = make([]func(), 0)
 )
 
 // Display() returns a reference to the game's display.
 func Display() *al.Display {
-	return display
+	return _display
 }
 
 // EventQueue() returns a reference to the game's event queue.
 func EventQueue() *al.EventQueue {
-	return eventQueue
+	return _eventQueue
 }
 
 // State() returns a reference to the game's current state.
 func State() GameState {
-    return state
+	return _state
 }

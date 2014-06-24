@@ -10,34 +10,39 @@ type GameState interface {
 	Leave()
 }
 
-func newState(s GameState) {
-	if state != nil {
-		state.Leave()
+func newState(state GameState, views ...View) {
+	if _state != nil {
+		_state.Leave()
 	}
-	state = s
-	state.Enter()
+	_state = state
+	_state.Enter()
+    _views.Init()
+    if views != nil {
+        for v := range views {
+            _views.PushBack(v)
+        }
+    }
 }
 
-// NewState() waits for all processes
-// to finish without blocking the current goroutine,
-// then changes the game state.
-func NewState(s GameState) {
+// NewState() waits for all processes to finish without
+// blocking the current goroutine, then changes the game state.
+func NewState(state GameState, views ...View) {
 	go func() {
-		for processes.Len() > 0 {
+		for _processes.Len() > 0 {
 			runtime.Gosched()
 		}
-		NewState(s)
+		NewState(state, views...)
 	}()
 }
 
 // NewStateNow() tells all processes to quit,
 // waits for them to finish, then changes the game state.
-func NewStateNow(s GameState) {
-    Broadcast(quit{})
-    for processes.Len() > 0 {
+func NewStateNow(state GameState, views ...View) {
+    NotifyAll(quit{})
+    for _processes.Len() > 0 {
         runtime.Gosched()
     }
-    newState(s)
+    newState(state, views...)
 }
 
 type BlankState struct{}

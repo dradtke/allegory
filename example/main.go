@@ -1,31 +1,28 @@
 package main
 
 import (
-	"github.com/dradtke/gopher/example/states/loading"
-	"flag"
-	"os"
-	"runtime/pprof"
 	"github.com/dradtke/gopher"
+	"github.com/dradtke/gopher/bus"
+	"github.com/dradtke/gopher/console"
+	"github.com/dradtke/gopher/example/states/loading"
+    "github.com/dradtke/gopher/example/events"
 )
 
-var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+func onDot(msg string) {
+    console.Info(msg)
+}
 
-// TODO: refactor all references to Allegro into Gopher
+func onCommand(cmd int) {
+    println("hi")
+}
+
 func main() {
-	flag.Parse()
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
-
 	gopher.Init(&loading.LoadingState{})
-	defer gopher.Cleanup()
 
+    bus.AddListener(events.DotNotifyEvent, onDot)
+    bus.AddListener(bus.ConsoleCommandEvent, onCommand)
+    defer bus.Clear()
+
+	defer gopher.Cleanup()
 	gopher.Loop()
 }

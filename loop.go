@@ -3,7 +3,7 @@ package gopher
 import (
 	al "github.com/dradtke/go-allegro/allegro"
 	"github.com/dradtke/gopher/config"
-	"github.com/dradtke/gopher/util"
+	"github.com/dradtke/gopher/console"
 	"runtime"
 )
 
@@ -15,11 +15,11 @@ func Loop() {
 	)
 
 	for running {
-		ev := eventQueue.WaitForEvent(&event)
+		ev := _eventQueue.WaitForEvent(&_event)
 
 		switch e := ev.(type) {
 		case al.TimerEvent:
-			if e.Source() == fpsTimer {
+			if e.Source() == _fpsTimer {
 				ticking = true
 				goto eventHandled
 			}
@@ -27,29 +27,29 @@ func Loop() {
 		case al.DisplayCloseEvent:
 			running = false
 			goto eventHandled
+        }
 
-		case al.UserEvent:
-			addr := e.Data1()
-			switch util.Retrieve(addr).(type) {
-			    // TODO: check on user events
-			}
+        // Check subsystems
+        if console.HandleEvent(ev) {
+            goto eventHandled
+        }
 
-        default:
-            for e := processes.Front(); e != nil; e = e.Next() {
-                if handled := e.Value.(Process).HandleEvent(ev); handled {
-                    break
-                }
+        // Finally, pass it to the views
+        for e := _views.Front(); e != nil; e = e.Next() {
+            if handled := e.Value.(View).HandleEvent(ev); handled {
+                break
             }
-		}
+        }
 
 	eventHandled:
-		if running && ticking && eventQueue.IsEmpty() {
-			Broadcast(&tick{0})
+		if running && ticking && _eventQueue.IsEmpty() {
+			// TODO: add a delta value
+			NotifyAll(&tick{0})
 
-			al.ClearToColor(config.BlankColor())
-			// TODO: add a delta value somewhere
-			state.Render()
+			_state.Render()
+            console.Render()
 			al.FlipDisplay()
+			al.ClearToColor(config.BlankColor())
 
 			ticking = false
 		}
@@ -58,13 +58,13 @@ func Loop() {
 	al.ClearToColor(config.BlankColor())
 	al.FlipDisplay()
 
-	display.SetWindowTitle("Shutting down...")
+	_display.SetWindowTitle("Shutting down...")
 	//console.Save()
 
 	// Tell all processes to quit immediately, then wait
 	// for them to finish before exiting.
-	Broadcast(&quit{})
-	for processes.Len() > 0 {
+	NotifyAll(&quit{})
+	for _processes.Len() > 0 {
         runtime.Gosched()
 	}
 }

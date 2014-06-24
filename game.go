@@ -9,7 +9,7 @@ import (
 // Fatal() shows an error message box, then quits the
 // game when the user clicks 'Close'.
 func Fatal(err error) {
-	dialog.ShowNativeMessageBoxWithButtons(display, "Application Error", "", err.Error(), []string{"Close"}, dialog.MESSAGEBOX_ERROR)
+	dialog.ShowNativeMessageBoxWithButtons(_display, "Application Error", "", err.Error(), []string{"Close"}, dialog.MESSAGEBOX_ERROR)
 	Exit(1)
 }
 

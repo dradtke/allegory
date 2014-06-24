@@ -4,43 +4,47 @@ import (
 	al "github.com/dradtke/go-allegro/allegro"
 	"github.com/dradtke/go-allegro/allegro/dialog"
 	"github.com/dradtke/go-allegro/allegro/font"
+	"github.com/dradtke/go-allegro/allegro/image"
 	prim "github.com/dradtke/go-allegro/allegro/primitives"
 	"github.com/dradtke/gopher/config"
+	"github.com/dradtke/gopher/console"
 )
 
 // Init() initializes the game by creating the event queue, installing
 // input systems, creating the display, and starting the FPS timer.
-func Init(s GameState) {
+func Init(state GameState, views ...View) {
 	var err error
 
     // Allegro
     if err = al.Install(); err != nil {
         panic(err)
     }
-    atexit = append(atexit, al.Uninstall)
+    _atexit = append(_atexit, al.Uninstall)
 
     // Native Dialogs Addon
     if err = dialog.Install(); err != nil {
         panic(err)
     }
-    atexit = append(atexit, dialog.Shutdown)
+    _atexit = append(_atexit, dialog.Shutdown)
 
     // Primitives Addon
     if err = prim.Install(); err != nil {
         Fatal(err)
     }
-    atexit = append(atexit, prim.Uninstall)
+    _atexit = append(_atexit, prim.Uninstall)
+
+    // Image addon
+    if err = image.Install(); err != nil {
+        Fatal(err)
+    }
+    _atexit = append(_atexit, image.Uninstall)
 
     // Font Addon
     font.Install()
-    atexit = append(atexit, font.Uninstall)
-
-	// Initialize subsystems.
-	// TODO: figure out why this breaks things when debugging...
-	//console.Init(gopher.EventQueue())
+    _atexit = append(_atexit, font.Uninstall)
 
     // Event Queue
-	if eventQueue, err = al.CreateEventQueue(); err != nil {
+	if _eventQueue, err = al.CreateEventQueue(); err != nil {
 		Fatal(err)
 	}
 
@@ -52,48 +56,51 @@ func Init(s GameState) {
 	if keyboard, err = al.KeyboardEventSource(); err != nil {
 		Fatal(err)
 	} else {
-		eventQueue.RegisterEventSource(keyboard)
+		_eventQueue.RegisterEventSource(keyboard)
 	}
 
     // Display
 	al.SetNewDisplayFlags(config.DisplayFlags())
     w, h := config.DisplaySize()
-	if display, err = al.CreateDisplay(w, h); err != nil {
+	if _display, err = al.CreateDisplay(w, h); err != nil {
 		Fatal(err)
 	}
-	display.SetWindowTitle(config.GameName())
-	eventQueue.Register(display)
+	_display.SetWindowTitle(config.GameName())
+	_eventQueue.Register(_display)
     al.ClearToColor(config.BlankColor())
     al.FlipDisplay()
 
     // FPS Timer
-	if fpsTimer, err = al.CreateTimer(1.0 / float64(config.Fps())); err != nil {
+	if _fpsTimer, err = al.CreateTimer(1.0 / float64(config.Fps())); err != nil {
 		Fatal(err)
 	}
-	eventQueue.Register(fpsTimer)
-	fpsTimer.Start()
+	_eventQueue.Register(_fpsTimer)
+	_fpsTimer.Start()
+
+	// Initialize subsystems.
+	console.Init(_eventQueue)
 
     // Set the state.
-    if s == nil {
-        s = &BlankState{}
+    if state == nil {
+        state = &BlankState{}
     }
-    newState(s)
+    newState(state, views...)
 }
 
 // Cleanup() destroys some common resources and runs all necessary
-// atexit functions.
+// _atexit functions.
 func Cleanup() {
-	if fpsTimer != nil {
-		fpsTimer.Destroy()
+	if _fpsTimer != nil {
+		_fpsTimer.Destroy()
 	}
-	if display != nil {
-		display.Destroy()
+	if _display != nil {
+		_display.Destroy()
 	}
-	if eventQueue != nil {
-		eventQueue.Destroy()
+	if _eventQueue != nil {
+		_eventQueue.Destroy()
 	}
 
-    for _, f := range atexit {
+    for _, f := range _atexit {
         f()
     }
 }
