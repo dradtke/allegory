@@ -17,6 +17,7 @@ package bus
 
 import (
     "container/list"
+    "errors"
     "fmt"
     "os"
     "reflect"
@@ -78,26 +79,29 @@ func Signal(eventType uint, params ...interface{}) {
 }
 
 // AddListener() registers a handler for a given event type.
-func AddListener(eventType uint, f interface{}) {
+func AddListener(eventType uint, f interface{}) error {
     if reflect.ValueOf(f).Kind() != reflect.Func {
-        fmt.Fprintf(os.Stderr, "cannot register non-func callback!\n")
-        return
+        return errors.New("cannot register non-func callback")
     }
-    if _, ok := _bus[eventType]; !ok {
-        _bus[eventType] = new(list.List)
+    eventBus, ok := _bus[eventType]
+    if !ok {
+        eventBus = new(list.List)
+        _bus[eventType] = eventBus
     }
-    _bus[eventType].PushBack(f)
+    eventBus.PushBack(f)
+    return nil
 }
 
 // RemoveListener() unregisters a handler for a given event type.
-func RemoveListener(eventType uint, f interface{}) {
+func RemoveListener(eventType uint, f interface{}) error {
     listeners := _bus[eventType]
     for e := listeners.Front(); e != nil; e = e.Next() {
         if &e.Value == &f {
             listeners.Remove(e)
-            break
+            return nil
         }
     }
+    return errors.New("event handler not found")
 }
 
 // Clear() unregisters all handlers on the bus for all event types,

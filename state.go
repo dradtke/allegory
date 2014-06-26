@@ -4,24 +4,21 @@ import (
 	"runtime"
 )
 
+// GameState is an interface to the game's current state. Only one game
+// state is active at any point in time, and states can be changed
+// by using either NewState() or NewStateNow().
 type GameState interface {
-	Enter()
-	Render()
-	Leave()
-}
+	// Perform initialization; this method is called once, when the
+	// state becomes the game state.
+	InitState()
 
-func newState(state GameState, views ...View) {
-	if _state != nil {
-		_state.Leave()
-	}
-	_state = state
-	_state.Enter()
-    _views.Init()
-    if views != nil {
-        for v := range views {
-            _views.PushBack(v)
-        }
-    }
+	// Render; this is called (ideally) once per frame, with a delta
+	// value calculated based on lag.
+	RenderState(delta float32)
+
+	// Perform cleanup; this method is called once, when the state
+	// has been replaced by another one.
+	CleanupState()
 }
 
 // NewState() waits for all processes to finish without
@@ -38,15 +35,30 @@ func NewState(state GameState, views ...View) {
 // NewStateNow() tells all processes to quit,
 // waits for them to finish, then changes the game state.
 func NewStateNow(state GameState, views ...View) {
-    NotifyAll(quit{})
-    for _processes.Len() > 0 {
-        runtime.Gosched()
-    }
-    newState(state, views...)
+	NotifyAll(quit{})
+	for _processes.Len() > 0 {
+		runtime.Gosched()
+	}
+	newState(state, views...)
 }
 
+// A state that does nothing.
 type BlankState struct{}
 
-func (s *BlankState) Enter()  {}
-func (s *BlankState) Render() {}
-func (s *BlankState) Leave()  {}
+func (s *BlankState) InitState()                {}
+func (s *BlankState) RenderState(delta float32) {}
+func (s *BlankState) CleanupState()             {}
+
+func newState(state GameState, views ...View) {
+	if _state != nil {
+		_state.CleanupState()
+	}
+	_state = state
+	_state.InitState()
+	_views.Init()
+	if views != nil {
+		for v := range views {
+			_views.PushBack(v)
+		}
+	}
+}

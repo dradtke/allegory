@@ -6,29 +6,32 @@ import (
 )
 
 type Process interface {
-	// HandleMessage() handles incoming messages.
+    // Do initialization on this process.
+    InitProcess()
+
+	// Handle incoming messages. If a non-nil error value is
+    // returned, then the process immediately quits and no
+    // successors (if any) will be run.
 	HandleMessage(msg interface{}) error
 
-	// Tick() tells the process to step forward one frame.
+	// Tell the process to step forward one frame.
 	// Returning a non-nil error value will cause the process
 	// to log the error and quit. Otherwise, the boolean
 	// return value should be `true` to indicate that it needs
 	// to continue processing, or `false` to indicate a
 	// successful termination.
-    // It is essentially a special case of HandleMessage().
-	Tick(delta float32) (bool, error)
+	// It is essentially a special case of HandleMessage().
+	Tick() (bool, error)
+
+    // Do cleanup after this process exits, but before the
+    // next one (if any) is kicked off.
+	CleanupProcess()
 }
 
-type ProcessCloser interface {
-	// Cleanup() is an optional method for _processes that
-	// need to do some cleanup once they're done.
-	Cleanup()
-}
-
-type ProcessParent interface {
-	// Next() is an optional method for _processes that
+type ProcessContinuer interface {
+	// NextProcess() is an optional method for processes that
 	// need to kick off another process once they're done.
-	Next() Process
+	NextProcess() Process
 }
 
 // Notify() sends an arbitrary message to a process.
@@ -71,57 +74,48 @@ func RunProcess(p Process) {
 
 	go func() {
 		var (
-			alive   bool = true
-			carryOn bool = true
-			err     error
+			alive   bool  = true // is the process running?
+			carryOn bool  = true // should the process kick off its successor, if any?
+			err     error = nil
 		)
 
+        p.InitProcess()
+
 		for alive {
-			msg := <-ch
-			switch m := msg.(type) {
+			switch msg := <-ch; msg.(type) {
 			case *quit:
 				alive = false
 				carryOn = false
 
 			case *tick:
-				alive, err = p.Tick(m.delta)
-				if err != nil {
+				if alive, err = p.Tick(); err != nil {
 					alive = false
 					carryOn = false
 					fmt.Fprintf(os.Stderr, "Process exited with error message '%s'\n", err.Error())
 				}
 
 			default:
-                if err := p.HandleMessage(msg); err != nil {
-                    fmt.Fprintf(os.Stderr, "Process handled %v with error message '%s'\n", err.Error())
-                }
+				if err := p.HandleMessage(msg); err != nil {
+                    alive = false
+                    carryOn = false
+					fmt.Fprintf(os.Stderr, "Process handled %v with error message '%s'\n", err.Error())
+				}
 			}
 		}
 
-		if c, ok := p.(ProcessCloser); ok {
-			c.Cleanup()
-		}
+        p.CleanupProcess()
 
-		if n, ok := p.(ProcessParent); carryOn && ok {
-			next := n.Next()
-			if next != nil {
+		if p, ok := p.(ProcessContinuer); carryOn && ok {
+			if next := p.NextProcess(); next != nil {
 				RunProcess(next)
 			}
 		}
 
 		_processes.Remove(e)
-		close(ch)
 		delete(_messengers, p)
+		close(ch)
 	}()
 }
-
-// tick is a Tick message.
-type tick struct {
-	delta float32
-}
-
-// quit is a Quit message.
-type quit struct{}
 
 // DelayProcess is a process that waits a set amount of time,
 // then takes action.
@@ -141,10 +135,10 @@ type DelayProcess struct {
 }
 
 func (p *DelayProcess) HandleMessage(msg interface{}) error {
-    return nil
+	return nil
 }
 
-func (p *DelayProcess) Tick(delta float32) (bool, error) {
+func (p *DelayProcess) Tick() (bool, error) {
 	p.timer++
 	if p.timer >= p.Delay {
 		if p.Activate != nil {
@@ -155,6 +149,12 @@ func (p *DelayProcess) Tick(delta float32) (bool, error) {
 	return true, nil
 }
 
+// Next() returns a reference to the process to run once
+// the delay for this one is up.
 func (p *DelayProcess) Next() Process {
 	return p.Successor
 }
+
+type tick struct{}
+
+type quit struct{}

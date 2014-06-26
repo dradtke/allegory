@@ -10,13 +10,13 @@ type LoadingState struct{
     dots string
 }
 
-func (s *LoadingState) Enter() {
+func (s *LoadingState) InitState() {
     font.Install()
     gopher.RunProcess(&LoadingDotAnimation{DotDelay: 30})
 }
 
-func (s *LoadingState) Render() {
+func (s *LoadingState) RenderState(delta float32) {
     font.DrawText(gopher.Font(), al.MapRGB(255, 255, 255), 10, 10, font.ALIGN_LEFT, "Loading" + s.dots)
 }
 
-func (s *LoadingState) Leave() {}
+func (s *LoadingState) CleanupState() {}

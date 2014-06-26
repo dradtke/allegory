@@ -11,11 +11,13 @@ type LoadingDotAnimation struct{
     DotDelay int
 }
 
+func (p *LoadingDotAnimation) InitProcess() {}
+
 func (p *LoadingDotAnimation) HandleMessage(msg interface{}) error {
     return nil
 }
 
-func (p *LoadingDotAnimation) Tick(delta float32) (bool, error) {
+func (p *LoadingDotAnimation) Tick() (bool, error) {
     p.timer++
     if p.timer >= p.DotDelay {
         state := gopher.State().(*LoadingState)
@@ -29,3 +31,5 @@ func (p *LoadingDotAnimation) Tick(delta float32) (bool, error) {
     }
     return true, nil
 }
+
+func (p *LoadingDotAnimation) CleanupProcess() {}
