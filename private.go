@@ -13,13 +13,16 @@ var (
 	_eventQueue *al.EventQueue
 	_fpsTimer   *al.Timer
 
-	_processes list.List
-	_views     list.List
+	_processes  list.List
+	_views      list.List
 	_messengers = make(map[Process]chan interface{})
 
-	_state GameState
-	_event al.Event
-	_atexit     = make([]func(), 0)
+	_state  GameState
+	_event  al.Event
+	_atexit = make([]func(), 0)
+
+	_lastActorId ActorId
+	_actors      = make(map[ActorId]Actor)
 )
 
 // Display() returns a reference to the game's display.

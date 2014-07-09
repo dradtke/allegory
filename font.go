@@ -6,12 +6,12 @@ import (
 
 var builtinFont *font.Font
 
-func Font() *font.Font {
+func BuiltinFont() *font.Font {
     if builtinFont == nil {
-        var err error
-        builtinFont, err = font.Builtin()
-        if err != nil {
+        if f, err := font.Builtin(); err != nil {
             panic(err)
+        } else {
+            builtinFont = f
         }
     }
     return builtinFont

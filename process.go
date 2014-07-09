@@ -34,18 +34,24 @@ type ProcessContinuer interface {
 	NextProcess() Process
 }
 
-// Notify() sends an arbitrary message to a process.
-func Notify(p Process, msg interface{}) {
+// NotifyProcess() sends an arbitrary message to a process.
+func NotifyProcess(p Process, msg interface{}) {
+    defer func() {
+        if r := recover(); r != nil {
+            // the channel was closed, but don't let it kill
+            // the program
+        }
+    }()
 	if ch, ok := _messengers[p]; ok {
 		ch <- msg
 	}
 }
 
-// NotifyAll() sends an arbitrary message to all running
+// NotifyAllProcesses() sends an arbitrary message to all running
 // _processes.
-func NotifyAll(msg interface{}) {
+func NotifyAllProcesses(msg interface{}) {
 	for e := _processes.Front(); e != nil; e = e.Next() {
-		Notify(e.Value.(Process), msg)
+		NotifyProcess(e.Value.(Process), msg)
 	}
 }
 

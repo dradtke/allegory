@@ -26,20 +26,21 @@ type GameState interface {
 func NewState(state GameState, views ...View) {
 	go func() {
 		for _processes.Len() > 0 {
+			// TODO: add a debug call here
 			runtime.Gosched()
 		}
-		NewState(state, views...)
+		setState(state, views...)
 	}()
 }
 
 // NewStateNow() tells all processes to quit,
 // waits for them to finish, then changes the game state.
 func NewStateNow(state GameState, views ...View) {
-	NotifyAll(quit{})
+	NotifyAllProcesses(quit{})
 	for _processes.Len() > 0 {
 		runtime.Gosched()
 	}
-	newState(state, views...)
+	setState(state, views...)
 }
 
 // A state that does nothing.
@@ -49,7 +50,7 @@ func (s *BlankState) InitState()                {}
 func (s *BlankState) RenderState(delta float32) {}
 func (s *BlankState) CleanupState()             {}
 
-func newState(state GameState, views ...View) {
+func setState(state GameState, views ...View) {
 	if _state != nil {
 		_state.CleanupState()
 	}

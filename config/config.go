@@ -5,12 +5,13 @@ import (
 	al "github.com/dradtke/go-allegro/allegro"
 )
 
+// Default values.
 var (
 	blank_color    al.Color
 	fps            = 60
 	display_width  = 640
 	display_height = 480
-    display_flags = al.WINDOWED
+	display_flags  = al.WINDOWED
 )
 
 const CONSOLE_FILE = "build/console.txt"
@@ -32,7 +33,7 @@ func BlankColor() al.Color {
 }
 
 func SetBlankColor(value al.Color) {
-    blank_color = value
+	blank_color = value
 }
 
 func DisplaySize() (w, h int) {
@@ -45,11 +46,11 @@ func SetDisplaySize(w, h int) {
 }
 
 func DisplayFlags() al.DisplayFlags {
-    return display_flags
+	return display_flags
 }
 
 func SetDisplayFlags(value al.DisplayFlags) {
-    display_flags = value
+	display_flags = value
 }
 
 func GameName() string {

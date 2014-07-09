@@ -56,12 +56,22 @@ func Loop() {
 			lastUpdate = now
 			lag += elapsed
 			for lag >= step {
-				NotifyAll(&tick{})
-                lag -= step
+				NotifyAllProcesses(&tick{})
+				for _, actor := range _actors {
+					actor.UpdateActor()
+				}
+				lag -= step
 			}
 
 			delta := float32(lag / step)
-			_state.RenderState(delta)
+			_state.RenderState(delta) // ???: is this needed with the actors?
+			al.HoldBitmapDrawing(true)
+			for _, actor := range _actors {
+				if actor, ok := actor.(RenderableActor); ok {
+					actor.RenderActor(delta)
+				}
+			}
+			al.HoldBitmapDrawing(false)
 			console.Render()
 			al.FlipDisplay()
 			al.ClearToColor(config.BlankColor())
@@ -78,7 +88,7 @@ func Loop() {
 
 	// Tell all processes to quit immediately, then wait
 	// for them to finish before exiting.
-	NotifyAll(&quit{})
+	NotifyAllProcesses(&quit{})
 	for _processes.Len() > 0 {
 		runtime.Gosched()
 	}
