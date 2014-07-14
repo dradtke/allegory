@@ -26,7 +26,6 @@ type GameState interface {
 func NewState(state GameState, views ...View) {
 	go func() {
 		for _processes.Len() > 0 {
-			// TODO: add a debug call here
 			runtime.Gosched()
 		}
 		setState(state, views...)
@@ -43,12 +42,13 @@ func NewStateNow(state GameState, views ...View) {
 	setState(state, views...)
 }
 
-// A state that does nothing.
-type BlankState struct{}
+type BaseState struct{}
 
-func (s *BlankState) InitState()                {}
-func (s *BlankState) RenderState(delta float32) {}
-func (s *BlankState) CleanupState()             {}
+func (s *BaseState) InitState()                {}
+func (s *BaseState) RenderState(delta float32) {}
+func (s *BaseState) CleanupState()             {}
+
+var _ GameState = (*BaseState)(nil)
 
 func setState(state GameState, views ...View) {
 	if _state != nil {
@@ -58,7 +58,7 @@ func setState(state GameState, views ...View) {
 	_state.InitState()
 	_views.Init()
 	if views != nil {
-		for v := range views {
+		for _, v := range views {
 			_views.PushBack(v)
 		}
 	}

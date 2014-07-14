@@ -14,14 +14,38 @@ func (id ActorId) Destroy() {
 type Actor interface {
 	InitActor()
 	UpdateActor()
-	Pos() (x, y float32)
-	SetPos(x, y float32)
 	CleanupActor()
 }
+
+type BaseActor struct {
+	// X and Y are the coordinates of the actor.
+	X, Y float32
+
+	// Xspeed and Yspeed are speed values used to extrapolate the actor's position in times of lag.
+	Xspeed, Yspeed float32
+}
+
+func (a *BaseActor) InitActor()    {}
+func (a *BaseActor) UpdateActor()  {}
+func (a *BaseActor) CleanupActor() {}
+
+func NewBaseActor(x, y float32) BaseActor {
+	return BaseActor{x, y, 0, 0}
+}
+
+func (a *BaseActor) HandleCommand(msg interface{}) {}
+func (a *BaseActor) Move(x, y float32)             { a.X += x; a.Y += y }
+func (a *BaseActor) CalculatePos(delta float32) (x, y float32) {
+	return a.X + (a.Xspeed * delta), a.Y + (a.Yspeed * delta)
+}
+
+// Ensure that BaseActor implements Actor.
+var _ Actor = (*BaseActor)(nil)
 
 func AddActor(actor Actor) ActorId {
 	id := ActorId(atomic.AddUint32((*uint32)(&_lastActorId), 1))
 	_actors[id] = actor
+	actor.InitActor()
 	return id
 }
 

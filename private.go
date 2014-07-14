@@ -2,23 +2,23 @@ package gopher
 
 import (
 	"container/list"
-	al "github.com/dradtke/go-allegro/allegro"
+	"github.com/dradtke/go-allegro/allegro"
 )
 
 // Frames per second.
 const FPS int = 60
 
 var (
-	_display    *al.Display
-	_eventQueue *al.EventQueue
-	_fpsTimer   *al.Timer
+	_display    *allegro.Display
+	_eventQueue *allegro.EventQueue
+	_fpsTimer   *allegro.Timer
 
 	_processes  list.List
 	_views      list.List
 	_messengers = make(map[Process]chan interface{})
 
 	_state  GameState
-	_event  al.Event
+	_event  allegro.Event
 	_atexit = make([]func(), 0)
 
 	_lastActorId ActorId
@@ -26,12 +26,12 @@ var (
 )
 
 // Display() returns a reference to the game's display.
-func Display() *al.Display {
+func Display() *allegro.Display {
 	return _display
 }
 
 // EventQueue() returns a reference to the game's event queue.
-func EventQueue() *al.EventQueue {
+func EventQueue() *allegro.EventQueue {
 	return _eventQueue
 }
 

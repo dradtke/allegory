@@ -1,7 +1,7 @@
 package gopher
 
 import (
-	al "github.com/dradtke/go-allegro/allegro"
+	"github.com/dradtke/go-allegro/allegro"
 	"github.com/dradtke/go-allegro/allegro/dialog"
 	"os"
 )
@@ -17,6 +17,6 @@ func Fatal(err error) {
 // error code.
 func Exit(code int) {
 	Cleanup()
-	al.Uninstall()
+	allegro.Uninstall()
 	os.Exit(code)
 }

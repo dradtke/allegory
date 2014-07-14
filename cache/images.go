@@ -2,11 +2,11 @@ package cache
 
 import (
 	"fmt"
-	al "github.com/dradtke/go-allegro/allegro"
+	"github.com/dradtke/go-allegro/allegro"
 	"sync"
 )
 
-var _images = make(map[string]*al.Bitmap)
+var _images = make(map[string]*allegro.Bitmap)
 
 // ClearImages() removes all images from the cache.
 func ClearImages() {
@@ -18,7 +18,7 @@ func ClearImages() {
 
 // LoadImage() loads an image into the cache.
 func LoadImage(path string) error {
-	bmp, err := al.LoadBitmap(path)
+	bmp, err := allegro.LoadBitmap(path)
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func LoadImages(paths []string) []error {
 
 // FindImage() finds an image in the cache. The value of path should
 // be the one that was passed into LoadImage() or LoadImages().
-func FindImage(path string) (*al.Bitmap, error) {
+func FindImage(path string) (*allegro.Bitmap, error) {
 	if bmp, ok := _images[path]; ok {
 		return bmp, nil
 	}
@@ -59,7 +59,7 @@ func FindImage(path string) (*al.Bitmap, error) {
 
 // Image() gets an image from the cache using FindImage(),
 // panicking if it isn't found.
-func Image(path string) *al.Bitmap {
+func Image(path string) *allegro.Bitmap {
 	bmp, err := FindImage(path)
 	if err != nil {
 		panic(err)

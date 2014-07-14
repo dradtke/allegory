@@ -4,7 +4,7 @@ package console
 import (
 	"container/list"
 	"fmt"
-	al "github.com/dradtke/go-allegro/allegro"
+	"github.com/dradtke/go-allegro/allegro"
 	"github.com/dradtke/gopher/bus"
 	"github.com/dradtke/gopher/config"
 	"github.com/dradtke/gopher/graphics"
@@ -19,9 +19,9 @@ const (
 )
 
 var (
-	blinker   *al.Timer
+	blinker   *allegro.Timer
 	cmd       string
-	color_map map[string]al.Color
+	color_map map[string]allegro.Color
 	is_blunk  bool
 	log       list.List
 	visible   bool
@@ -80,19 +80,19 @@ func Fatalf(msg string, v ...interface{}) {
 	log.PushBack(message{level: "FATAL", text: fmt.Sprintf(msg, v...)})
 }
 
-func Init(eventQueue *al.EventQueue) {
+func Init(eventQueue *allegro.EventQueue) {
 	var err error
-	if blinker, err = al.CreateTimer(BLINK_SPEED); err != nil {
+	if blinker, err = allegro.CreateTimer(BLINK_SPEED); err != nil {
 		panic(err)
 	}
 	eventQueue.Register(blinker)
 	blinker.Start()
 
-	color_map = map[string]al.Color{
-		"DEBUG": al.MapRGB(0, 0, 255),
-		"INFO":  al.MapRGB(0, 255, 0),
-		"ERROR": al.MapRGB(255, 0, 0),
-		"FATAL": al.MapRGB(255, 0, 0),
+	color_map = map[string]allegro.Color{
+		"DEBUG": allegro.MapRGB(0, 0, 255),
+		"INFO":  allegro.MapRGB(0, 255, 0),
+		"ERROR": allegro.MapRGB(255, 0, 0),
+		"FATAL": allegro.MapRGB(255, 0, 0),
 	}
 }
 
@@ -111,23 +111,23 @@ func Render() {
 func HandleEvent(ev interface{}) bool {
 	switch e := ev.(type) {
 
-	case al.KeyDownEvent:
+	case allegro.KeyDownEvent:
 		switch e.KeyCode() {
 
-		case al.KEY_F12:
+		case allegro.KEY_F12:
 			visible = !visible
 			return true
 		}
 
-	case al.KeyCharEvent:
+	case allegro.KeyCharEvent:
 		if visible {
 			switch e.KeyCode() {
 
-			case al.KEY_BACKSPACE:
+			case allegro.KEY_BACKSPACE:
 				backspaceCmd()
 				return true
 
-			case al.KEY_ENTER:
+			case allegro.KEY_ENTER:
 				submitCmd()
 				return true
 
@@ -140,7 +140,7 @@ func HandleEvent(ev interface{}) bool {
 			}
 		}
 
-	case al.TimerEvent:
+	case allegro.TimerEvent:
 		if e.Source() == blinker {
 			is_blunk = !is_blunk
 			return true

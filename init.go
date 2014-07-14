@@ -1,13 +1,14 @@
 package gopher
 
 import (
-	al "github.com/dradtke/go-allegro/allegro"
+	"github.com/dradtke/go-allegro/allegro"
 	"github.com/dradtke/go-allegro/allegro/dialog"
 	"github.com/dradtke/go-allegro/allegro/font"
 	"github.com/dradtke/go-allegro/allegro/image"
-	prim "github.com/dradtke/go-allegro/allegro/primitives"
+	"github.com/dradtke/go-allegro/allegro/primitives"
 	"github.com/dradtke/gopher/config"
 	"github.com/dradtke/gopher/console"
+	"runtime"
 )
 
 // Init() initializes the game by creating the event queue, installing
@@ -15,11 +16,13 @@ import (
 func Init(state GameState, views ...View) {
 	var err error
 
+	runtime.LockOSThread()
+
 	// Allegro
-	if err = al.Install(); err != nil {
+	if err = allegro.Install(); err != nil {
 		panic(err)
 	}
-	_atexit = append(_atexit, al.Uninstall)
+	_atexit = append(_atexit, allegro.Uninstall)
 
 	// Native Dialogs Addon
 	if err = dialog.Install(); err != nil {
@@ -28,10 +31,10 @@ func Init(state GameState, views ...View) {
 	_atexit = append(_atexit, dialog.Shutdown)
 
 	// Primitives Addon
-	if err = prim.Install(); err != nil {
+	if err = primitives.Install(); err != nil {
 		Fatal(err)
 	}
-	_atexit = append(_atexit, prim.Uninstall)
+	_atexit = append(_atexit, primitives.Uninstall)
 
 	// Image addon
 	if err = image.Install(); err != nil {
@@ -44,34 +47,34 @@ func Init(state GameState, views ...View) {
 	_atexit = append(_atexit, font.Uninstall)
 
 	// Event Queue
-	if _eventQueue, err = al.CreateEventQueue(); err != nil {
+	if _eventQueue, err = allegro.CreateEventQueue(); err != nil {
 		Fatal(err)
 	}
 
 	// Keyboard Driver
-	var keyboard *al.EventSource
-	if err = al.InstallKeyboard(); err != nil {
+	var keyboard *allegro.EventSource
+	if err = allegro.InstallKeyboard(); err != nil {
 		Fatal(err)
 	}
-	if keyboard, err = al.KeyboardEventSource(); err != nil {
+	if keyboard, err = allegro.KeyboardEventSource(); err != nil {
 		Fatal(err)
 	} else {
 		_eventQueue.RegisterEventSource(keyboard)
 	}
 
 	// Display
-	al.SetNewDisplayFlags(config.DisplayFlags())
+	allegro.SetNewDisplayFlags(config.DisplayFlags())
 	w, h := config.DisplaySize()
-	if _display, err = al.CreateDisplay(w, h); err != nil {
+	if _display, err = allegro.CreateDisplay(w, h); err != nil {
 		Fatal(err)
 	}
-	_display.SetWindowTitle(config.GameName())
+	_display.SetWindowTitle(config.Title())
 	_eventQueue.Register(_display)
-	al.ClearToColor(config.BlankColor())
-	al.FlipDisplay()
+	allegro.ClearToColor(config.BlankColor())
+	allegro.FlipDisplay()
 
 	// FPS Timer
-	if _fpsTimer, err = al.CreateTimer(1.0 / float64(config.Fps())); err != nil {
+	if _fpsTimer, err = allegro.CreateTimer(1.0 / float64(config.Fps())); err != nil {
 		Fatal(err)
 	}
 	_eventQueue.Register(_fpsTimer)
@@ -82,7 +85,7 @@ func Init(state GameState, views ...View) {
 
 	// Set the state.
 	if state == nil {
-		state = &BlankState{}
+		state = &BaseState{}
 	}
 	setState(state, views...)
 }
@@ -103,4 +106,6 @@ func Cleanup() {
 	for _, f := range _atexit {
 		f()
 	}
+
+	runtime.UnlockOSThread()
 }

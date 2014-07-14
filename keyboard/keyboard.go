@@ -2,7 +2,7 @@ package keyboard
 
 import (
 	"fmt"
-	al "github.com/dradtke/go-allegro/allegro"
+	"github.com/dradtke/go-allegro/allegro"
 )
 
 var (
@@ -14,61 +14,61 @@ var (
 type Mod int
 
 const (
-    Ctrl Mod = iota
-    Alt
-    Shift
+	Ctrl Mod = iota
+	Alt
+	Shift
 )
 
-func update_mods(key al.KeyCode, delta int8) (is_mod bool) {
-    is_mod = true
+func update_mods(key allegro.KeyCode, delta int8) (is_mod bool) {
+	is_mod = true
 	switch {
-	case key == al.KEY_LCTRL || key == al.KEY_RCTRL:
+	case key == allegro.KEY_LCTRL || key == allegro.KEY_RCTRL:
 		ctrl_mod += delta
-	case key == al.KEY_LALT || key == al.KEY_RALT:
+	case key == allegro.KEY_LALT || key == allegro.KEY_RALT:
 		alt_mod += delta
-	case key == al.KEY_LSHIFT || key == al.KEY_RSHIFT:
+	case key == allegro.KEY_LSHIFT || key == allegro.KEY_RSHIFT:
 		shift_mod += delta
-    default:
-        is_mod = false
+	default:
+		is_mod = false
 	}
-    return
+	return
 }
 
-var pressed = make(map[al.KeyCode]bool)
+var pressed = make(map[allegro.KeyCode]bool)
 
-func Down(key al.KeyCode) {
+func Down(key allegro.KeyCode) {
 	if !update_mods(key, 1) {
-        pressed[key] = true
-    }
+		pressed[key] = true
+	}
 }
 
-func Up(key al.KeyCode) {
-    if !update_mods(key, -1) {
-        delete(pressed, key)
-    }
+func Up(key allegro.KeyCode) {
+	if !update_mods(key, -1) {
+		delete(pressed, key)
+	}
 }
 
-func matches(mods []Mod, keys []al.KeyCode) bool {
-    var (
-        needCtrl bool
-        needAlt bool
-        needShift bool
-    )
+func matches(mods []Mod, keys []allegro.KeyCode) bool {
+	var (
+		needCtrl  bool
+		needAlt   bool
+		needShift bool
+	)
 
-    for m := range mods {
-        switch m {
-        case Ctrl:
-            needCtrl = true
-        case Alt:
-            needAlt = true
-        case Shift:
-            needShift = true
-        }
-    }
+	for m := range mods {
+		switch m {
+		case Ctrl:
+			needCtrl = true
+		case Alt:
+			needAlt = true
+		case Shift:
+			needShift = true
+		}
+	}
 
-    if needCtrl != ctrl_mod || needAlt != alt_mod || needShift != shift_mod {
-        return
-    }
+	if needCtrl != ctrl_mod || needAlt != alt_mod || needShift != shift_mod {
+		return
+	}
 
-    // we have the modifiers!
+	// we have the modifiers!
 }

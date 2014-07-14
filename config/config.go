@@ -2,22 +2,23 @@
 package config
 
 import (
-	al "github.com/dradtke/go-allegro/allegro"
+	"github.com/dradtke/go-allegro/allegro"
 )
 
 // Default values.
 var (
-	blank_color    al.Color
+	title          string
+	blank_color    allegro.Color
 	fps            = 60
 	display_width  = 640
 	display_height = 480
-	display_flags  = al.WINDOWED
+	display_flags  = allegro.WINDOWED
 )
 
 const CONSOLE_FILE = "build/console.txt"
 
 func init() {
-	blank_color = al.MapRGB(0, 0, 0)
+	blank_color = allegro.MapRGB(0, 0, 0)
 }
 
 func Fps() int {
@@ -28,11 +29,11 @@ func SetFps(value int) {
 	fps = value
 }
 
-func BlankColor() al.Color {
+func BlankColor() allegro.Color {
 	return blank_color
 }
 
-func SetBlankColor(value al.Color) {
+func SetBlankColor(value allegro.Color) {
 	blank_color = value
 }
 
@@ -45,14 +46,22 @@ func SetDisplaySize(w, h int) {
 	display_height = h
 }
 
-func DisplayFlags() al.DisplayFlags {
+func DisplayFlags() allegro.DisplayFlags {
 	return display_flags
 }
 
-func SetDisplayFlags(value al.DisplayFlags) {
+func SetDisplayFlags(value allegro.DisplayFlags) {
 	display_flags = value
 }
 
-func GameName() string {
-	return "Hello World"
+func SetTitle(value string) {
+	title = value
+}
+
+func Title() string {
+	if title == "" {
+		return "Untitled"
+	} else {
+		return title
+	}
 }
