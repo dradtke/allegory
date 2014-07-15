@@ -8,6 +8,7 @@ import (
 // Default values.
 var (
 	title          string
+	pkg_root       string
 	blank_color    allegro.Color
 	fps            = 60
 	display_width  = 640
@@ -64,4 +65,12 @@ func Title() string {
 	} else {
 		return title
 	}
+}
+
+func SetPackageRoot(value string) {
+	pkg_root = value
+}
+
+func PackageRoot() string {
+	return pkg_root
 }

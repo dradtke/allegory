@@ -8,15 +8,28 @@ import (
 	"github.com/dradtke/go-allegro/allegro/primitives"
 	"github.com/dradtke/gopher/config"
 	"github.com/dradtke/gopher/console"
+	"os"
+	"path/filepath"
 	"runtime"
 )
 
 // Init() initializes the game by creating the event queue, installing
-// input systems, creating the display, and starting the FPS timer.
+// input systems, creating the display, and starting the FPS timer. It also
+// changes the working directory to the package root relative to GOPATH,
+// if one was specified.
 func Init(state GameState, views ...View) {
+	runtime.LockOSThread()
 	var err error
 
-	runtime.LockOSThread()
+	if pkg_root := config.PackageRoot(); pkg_root != "" {
+		for _, dir := range filepath.SplitList(os.Getenv("GOPATH")) {
+			p := filepath.Join(dir, "src", pkg_root)
+			if _, err := os.Stat(p); !os.IsNotExist(err) {
+				os.Chdir(p)
+				break
+			}
+		}
+	}
 
 	// Allegro
 	if err = allegro.Install(); err != nil {
