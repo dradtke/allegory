@@ -1,4 +1,4 @@
-package gopher
+package allegory
 
 // View is an interface for a receiver of events. It can be thought
 // of as a perspective on the state that can listen for events.

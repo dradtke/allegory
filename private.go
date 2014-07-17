@@ -1,4 +1,4 @@
-package gopher
+package allegory
 
 import (
 	"container/list"

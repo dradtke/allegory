@@ -1,4 +1,4 @@
-package gopher
+package allegory
 
 import (
 	"github.com/dradtke/go-allegro/allegro"

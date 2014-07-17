@@ -1,10 +1,10 @@
-package gopher
+package allegory
 
 import (
 	"fmt"
+	"github.com/dradtke/allegory/config"
+	"github.com/dradtke/allegory/console"
 	"github.com/dradtke/go-allegro/allegro"
-	"github.com/dradtke/gopher/config"
-	"github.com/dradtke/gopher/console"
 	"os"
 	"path/filepath"
 	"runtime"

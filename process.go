@@ -1,4 +1,4 @@
-package gopher
+package allegory
 
 import (
 	"fmt"
@@ -6,12 +6,12 @@ import (
 )
 
 type Process interface {
-    // Do initialization on this process.
-    InitProcess()
+	// Do initialization on this process.
+	InitProcess()
 
 	// Handle incoming messages. If a non-nil error value is
-    // returned, then the process immediately quits and no
-    // successors (if any) will be run.
+	// returned, then the process immediately quits and no
+	// successors (if any) will be run.
 	HandleMessage(msg interface{}) error
 
 	// Tell the process to step forward one frame.
@@ -23,8 +23,8 @@ type Process interface {
 	// It is essentially a special case of HandleMessage().
 	Tick() (bool, error)
 
-    // Do cleanup after this process exits, but before the
-    // next one (if any) is kicked off.
+	// Do cleanup after this process exits, but before the
+	// next one (if any) is kicked off.
 	CleanupProcess()
 }
 
@@ -36,12 +36,12 @@ type ProcessContinuer interface {
 
 // NotifyProcess() sends an arbitrary message to a process.
 func NotifyProcess(p Process, msg interface{}) {
-    defer func() {
-        if r := recover(); r != nil {
-            // the channel was closed, but don't let it kill
-            // the program
-        }
-    }()
+	defer func() {
+		if r := recover(); r != nil {
+			// the channel was closed, but don't let it kill
+			// the program
+		}
+	}()
 	if ch, ok := _messengers[p]; ok {
 		ch <- msg
 	}
@@ -85,7 +85,7 @@ func RunProcess(p Process) {
 			err     error = nil
 		)
 
-        p.InitProcess()
+		p.InitProcess()
 
 		for alive {
 			switch msg := <-ch; msg.(type) {
@@ -102,14 +102,14 @@ func RunProcess(p Process) {
 
 			default:
 				if err := p.HandleMessage(msg); err != nil {
-                    alive = false
-                    carryOn = false
+					alive = false
+					carryOn = false
 					fmt.Fprintf(os.Stderr, "Process handled %v with error message '%s'\n", err.Error())
 				}
 			}
 		}
 
-        p.CleanupProcess()
+		p.CleanupProcess()
 
 		if p, ok := p.(ProcessContinuer); carryOn && ok {
 			if next := p.NextProcess(); next != nil {
