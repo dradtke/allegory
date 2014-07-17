@@ -22,7 +22,10 @@ import (
 	"runtime"
 )
 
-var _bus = make(map[uint]*list.List)
+var (
+	_bus     = make(map[uint]*list.List)
+	_curried = make(map[uint][]reflect.Value)
+)
 
 // Signal() calls all of the registered listeners for a given
 // event type, as long as the parameters exactly match the ones
@@ -51,9 +54,13 @@ func Signal(eventType uint, params ...interface{}) {
 	if !ok || listeners.Len() == 0 {
 		return
 	}
-	values := make([]reflect.Value, len(params))
+	curried := _curried[eventType]
+	values := make([]reflect.Value, len(params)+len(curried))
+	for i, curry := range curried {
+		values[i] = curry
+	}
 	for i, param := range params {
-		values[i] = reflect.ValueOf(param)
+		values[i+len(curried)] = reflect.ValueOf(param)
 	}
 	n := len(values)
 l:
@@ -78,7 +85,7 @@ l:
 }
 
 // AddListener() registers a handler for a given event type.
-func AddListener(eventType uint, f interface{}) error {
+func AddListener(eventType uint, f interface{}, curry ...interface{}) error {
 	if reflect.ValueOf(f).Kind() != reflect.Func {
 		return errors.New("cannot register non-func callback")
 	}
@@ -88,6 +95,11 @@ func AddListener(eventType uint, f interface{}) error {
 		_bus[eventType] = eventBus
 	}
 	eventBus.PushBack(f)
+	curried := make([]reflect.Value, len(curry))
+	for i, x := range curry {
+		curried[i] = reflect.ValueOf(x)
+	}
+	_curried[eventType] = curried
 	return nil
 }
 
@@ -97,6 +109,7 @@ func RemoveListener(eventType uint, f interface{}) error {
 	for e := listeners.Front(); e != nil; e = e.Next() {
 		if &e.Value == &f {
 			listeners.Remove(e)
+			delete(_curried, eventType)
 			return nil
 		}
 	}
@@ -109,6 +122,7 @@ func Clear() {
 	for eventType, listeners := range _bus {
 		listeners.Init()
 		delete(_bus, eventType)
+		delete(_curried, eventType)
 	}
 	runtime.GC()
 }
