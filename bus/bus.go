@@ -24,7 +24,7 @@ import (
 
 var (
 	_bus     = make(map[uint]*list.List)
-	_curried = make(map[uint][]reflect.Value)
+	_curried = make(map[*list.Element][]reflect.Value)
 )
 
 // Signal() calls all of the registered listeners for a given
@@ -54,17 +54,16 @@ func Signal(eventType uint, params ...interface{}) {
 	if !ok || listeners.Len() == 0 {
 		return
 	}
-	curried := _curried[eventType]
-	values := make([]reflect.Value, len(params)+len(curried))
-	for i, curry := range curried {
-		values[i] = curry
-	}
+	paramValues := make([]reflect.Value, len(params))
 	for i, param := range params {
-		values[i+len(curried)] = reflect.ValueOf(param)
+		paramValues[i] = reflect.ValueOf(param)
 	}
-	n := len(values)
+	numParams := len(paramValues)
 l:
 	for e := listeners.Front(); e != nil; e = e.Next() {
+		curriedValues := _curried[e]
+		numCurried := len(curriedValues)
+		n := numParams + numCurried
 		f := reflect.ValueOf(e.Value)
 		t := f.Type()
 		if t.NumIn() != n {
@@ -72,15 +71,31 @@ l:
 				"need %d parameters, but have %d\n", eventType, n, t.NumIn())
 			continue l
 		}
+		allValues := make([]reflect.Value, n)
 		for i := 0; i < n; i++ {
-			if t.In(i) != values[i].Type() {
+			in := t.In(i)
+			failed := false
+			if i < numCurried {
+				if in != paramValues[i].Type() {
+					failed = true
+				} else {
+					allValues[i] = curriedValues[i]
+				}
+			} else {
+				if in != curriedValues[i-numCurried].Type() {
+					failed = true
+				} else {
+					allValues[i] = paramValues[i-numCurried]
+				}
+			}
+			if failed {
 				fmt.Fprintf(os.Stderr, "invalid callback registered for event type %d: "+
 					"need %s parameter, but have %s\n",
-					eventType, values[i].Type().Name(), t.In(i).Name())
+					eventType, paramValues[i].Type().Name(), t.In(i).Name())
 				continue l
 			}
 		}
-		f.Call(values)
+		f.Call(allValues)
 	}
 }
 
@@ -94,12 +109,12 @@ func AddListener(eventType uint, f interface{}, curry ...interface{}) error {
 		eventBus = new(list.List)
 		_bus[eventType] = eventBus
 	}
-	eventBus.PushBack(f)
-	curried := make([]reflect.Value, len(curry))
+	e := eventBus.PushBack(f)
+	curriedValues := make([]reflect.Value, len(curry))
 	for i, x := range curry {
-		curried[i] = reflect.ValueOf(x)
+		curriedValues[i] = reflect.ValueOf(x)
 	}
-	_curried[eventType] = curried
+	_curried[e] = curriedValues
 	return nil
 }
 
@@ -109,7 +124,7 @@ func RemoveListener(eventType uint, f interface{}) error {
 	for e := listeners.Front(); e != nil; e = e.Next() {
 		if &e.Value == &f {
 			listeners.Remove(e)
-			delete(_curried, eventType)
+			delete(_curried, e)
 			return nil
 		}
 	}
@@ -120,9 +135,11 @@ func RemoveListener(eventType uint, f interface{}) error {
 // then immediately runs a garbage collection.
 func Clear() {
 	for eventType, listeners := range _bus {
+		for e := listeners.Front(); e != nil; e = e.Next() {
+			delete(_curried, e)
+		}
 		listeners.Init()
 		delete(_bus, eventType)
-		delete(_curried, eventType)
 	}
 	runtime.GC()
 }
