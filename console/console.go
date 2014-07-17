@@ -4,10 +4,10 @@ package console
 import (
 	"container/list"
 	"fmt"
+	"github.com/dradtke/allegory/bus"
+	"github.com/dradtke/allegory/config"
+	"github.com/dradtke/allegory/graphics"
 	"github.com/dradtke/go-allegro/allegro"
-	"github.com/dradtke/gopher/bus"
-	"github.com/dradtke/gopher/config"
-	"github.com/dradtke/gopher/graphics"
 	"io"
 	"os"
 	"unicode"
