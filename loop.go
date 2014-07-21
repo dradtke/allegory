@@ -90,6 +90,7 @@ func Loop() {
 				for e := _views.Front(); e != nil; e = e.Next() {
 					e.Value.(View).UpdateView()
 				}
+				_state.UpdateState()
 				lag -= step
 			}
 

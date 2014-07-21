@@ -12,6 +12,9 @@ type GameState interface {
 	// state becomes the game state.
 	InitState()
 
+	// Called once per frame to perform any necessary updates.
+	UpdateState()
+
 	// Render; this is called (ideally) once per frame, with a delta
 	// value calculated based on lag.
 	RenderState(delta float32)
@@ -45,6 +48,7 @@ func NewStateNow(state GameState, views ...View) {
 type BaseState struct{}
 
 func (s *BaseState) InitState()                {}
+func (s *BaseState) UpdateState()              {}
 func (s *BaseState) RenderState(delta float32) {}
 func (s *BaseState) CleanupState()             {}
 

@@ -8,8 +8,9 @@ type View interface {
 	InitView()
 
 	// Handle an Allegro event, such as keyboard input.
-	HandleEvent(msg interface{}) bool
+	HandleEvent(event interface{}) bool
 
+	// Called once per frame to perform any necessary updates.
 	UpdateView()
 
 	// Clean up the state. This is useful for cleaning up listeners
@@ -19,9 +20,9 @@ type View interface {
 
 type BaseView struct{}
 
-func (v *BaseView) InitView()                        {}
-func (v *BaseView) HandleEvent(msg interface{}) bool { return false }
-func (v *BaseView) UpdateView()                      {}
-func (v *BaseView) CleanupView()                     {}
+func (v *BaseView) InitView()                          {}
+func (v *BaseView) HandleEvent(event interface{}) bool { return false }
+func (v *BaseView) UpdateView()                        {}
+func (v *BaseView) CleanupView()                       {}
 
 var _ View = (*BaseView)(nil)
