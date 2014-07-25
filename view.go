@@ -18,7 +18,9 @@ type View interface {
 	CleanupView()
 }
 
-type BaseView struct{}
+type BaseView struct {
+	State GameState
+}
 
 func (v *BaseView) InitView()                          {}
 func (v *BaseView) HandleEvent(event interface{}) bool { return false }

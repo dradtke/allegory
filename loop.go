@@ -1,6 +1,7 @@
 package allegory
 
 import (
+	"errors"
 	"fmt"
 	"github.com/dradtke/allegory/config"
 	"github.com/dradtke/allegory/console"
@@ -25,10 +26,19 @@ func Loop() {
 		elapsed         time.Duration
 	)
 
-	// Provide a more readable stack-trace on runtime panic.
+	// Provide a more readable stack-trace on runtime panic and show an error dialog.
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", r)
+			var failure error
+			switch r := r.(type) {
+			case error:
+				failure = r
+			case string:
+				failure = errors.New(r)
+			default:
+				failure = fmt.Errorf("%v", r)
+			}
+			fmt.Fprintf(os.Stderr, "%s\n", failure.Error())
 			cwd, err := os.Getwd()
 			if err != nil {
 				panic(err)
@@ -46,6 +56,7 @@ func Loop() {
 					break
 				}
 			}
+			Fatal(failure)
 		}
 	}()
 
@@ -97,9 +108,15 @@ func Loop() {
 			delta := float32(lag / step)
 			_state.RenderState(delta) // ???: is this needed with the actors?
 			//allegro.HoldBitmapDrawing(true) // ???: why does this kill it?
-			for _, actor := range _actors {
-				if actor, ok := actor.(RenderableActor); ok {
-					actor.RenderActor(delta)
+			for i := uint(0); i <= _highestLayer; i++ {
+				layer, ok := _actorLayers[i]
+				if !ok {
+					continue
+				}
+				for _, actor := range layer {
+					if actor, ok := actor.(RenderableActor); ok {
+						actor.RenderActor(delta)
+					}
 				}
 			}
 			//allegro.HoldBitmapDrawing(false)

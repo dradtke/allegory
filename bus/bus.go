@@ -82,13 +82,14 @@ l:
 					allValues[i] = curriedValues[i]
 				}
 			} else {
-				if in != curriedValues[i-numCurried].Type() {
+				if in != paramValues[i-numCurried].Type() {
 					failed = true
 				} else {
 					allValues[i] = paramValues[i-numCurried]
 				}
 			}
 			if failed {
+				// TODO: if it's convertible to the desired type, then convert it
 				fmt.Fprintf(os.Stderr, "invalid callback registered for event type %d: "+
 					"need %s parameter, but have %s\n",
 					eventType, paramValues[i].Type().Name(), t.In(i).Name())

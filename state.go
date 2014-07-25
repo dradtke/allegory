@@ -1,6 +1,7 @@
 package allegory
 
 import (
+	"reflect"
 	"runtime"
 )
 
@@ -58,12 +59,38 @@ func setState(state GameState, views ...View) {
 	if _state != nil {
 		_state.CleanupState()
 	}
+	for e := _views.Front(); e != nil; e = e.Next() {
+		e.Value.(View).CleanupView()
+	}
+
 	_state = state
 	_state.InitState()
 	_views.Init()
+
 	if views != nil {
+		stateVal := reflect.ValueOf(state)
 		for _, v := range views {
+			assignStateField(stateVal, reflect.ValueOf(v))
+			v.InitView()
 			_views.PushBack(v)
+		}
+	}
+}
+
+var stateType = reflect.TypeOf((*GameState)(nil)).Elem()
+
+// If the view embeds BaseView, set its State field.
+func assignStateField(stateVal, viewVal reflect.Value) {
+	for viewVal.Kind() == reflect.Interface || viewVal.Kind() == reflect.Ptr {
+		viewVal = viewVal.Elem()
+	}
+	if _, ok := viewVal.Type().FieldByName("BaseView"); ok {
+		base := viewVal.FieldByName("BaseView")
+		if _, ok := base.Type().FieldByName("State"); ok {
+			s := base.FieldByName("State")
+			if s.Type().Implements(stateType) {
+				s.Set(stateVal)
+			}
 		}
 	}
 }

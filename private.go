@@ -21,8 +21,10 @@ var (
 	_event  allegro.Event
 	_atexit = make([]func(), 0)
 
-	_lastActorId ActorId
-	_actors      = make(map[ActorId]Actor)
+	_lastActorId  ActorId
+	_actors       = make(map[ActorId]Actor)
+	_actorLayers  = make(map[uint][]Actor)
+	_highestLayer uint
 )
 
 // Display() returns a reference to the game's display.
