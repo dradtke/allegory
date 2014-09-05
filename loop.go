@@ -4,13 +4,53 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dradtke/allegory/config"
-	"github.com/dradtke/allegory/console"
 	"github.com/dradtke/go-allegro/allegro"
 	"os"
 	"path/filepath"
 	"runtime"
 	"time"
 )
+
+// loopExiting() provides a more readable stack-trace and shows an error dialog on runtime panic.
+func loopExiting() {
+	r := recover()
+	if r == nil {
+		// everything is good
+		return
+	}
+
+	var failure error
+	switch r := r.(type) {
+	case error:
+		failure = r
+	case string:
+		failure = errors.New(r)
+	default:
+		failure = fmt.Errorf("%v", r)
+	}
+
+	fmt.Fprintf(os.Stderr, "%s\n", failure.Error())
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	skip := 3 // TODO: figure out something better for this value? Just include all .go file?
+	for {
+		if _, file, line, ok := runtime.Caller(skip); ok && filepath.Ext(file) == ".go" {
+			if rel, err := filepath.Rel(cwd, file); err == nil {
+				fmt.Fprintf(os.Stderr, "    %s:%d\n", rel, line)
+			} else {
+				break
+			}
+			skip += 1
+		} else {
+			break
+		}
+	}
+
+	Fatal(failure)
+}
 
 // Loop() is the main game loop.
 func Loop() {
@@ -26,39 +66,10 @@ func Loop() {
 		elapsed         time.Duration
 	)
 
-	// Provide a more readable stack-trace on runtime panic and show an error dialog.
-	defer func() {
-		if r := recover(); r != nil {
-			var failure error
-			switch r := r.(type) {
-			case error:
-				failure = r
-			case string:
-				failure = errors.New(r)
-			default:
-				failure = fmt.Errorf("%v", r)
-			}
-			fmt.Fprintf(os.Stderr, "%s\n", failure.Error())
-			cwd, err := os.Getwd()
-			if err != nil {
-				panic(err)
-			}
-			skip := 4 // skip past where we are now + two panic.c locations + os_<something>.c
-			for {
-				if _, file, line, ok := runtime.Caller(skip); ok && filepath.Ext(file) == ".go" {
-					if rel, err := filepath.Rel(cwd, file); err == nil {
-						fmt.Fprintf(os.Stderr, "    %s:%d\n", rel, line)
-					} else {
-						break
-					}
-					skip += 1
-				} else {
-					break
-				}
-			}
-			Fatal(failure)
-		}
-	}()
+	//defer loopExiting()
+
+	go readStdin()
+	Debug("Starting Up...")
 
 	for running {
 		ev := _eventQueue.WaitForEvent(&_event)
@@ -75,15 +86,12 @@ func Loop() {
 			goto eventHandled
 		}
 
-		// Check subsystems
-		if console.HandleEvent(ev) {
-			goto eventHandled
-		}
-
-		// Finally, pass it to the views
-		for e := _views.Front(); e != nil; e = e.Next() {
-			if handled := e.Value.(View).HandleEvent(ev); handled {
-				break
+		// If the event wasn't handled, pass it to the views.
+		for _, view := range _views {
+			if view, ok := view.(PlayerView); ok {
+				if handled := view.HandleEvent(ev); handled {
+					break
+				}
 			}
 		}
 
@@ -98,15 +106,17 @@ func Loop() {
 				for _, actor := range _actors {
 					actor.UpdateActor()
 				}
-				for e := _views.Front(); e != nil; e = e.Next() {
-					e.Value.(View).UpdateView()
+				for _, view := range _views {
+					view.UpdateView()
 				}
 				_state.UpdateState()
 				lag -= step
 			}
 
 			delta := float32(lag / step)
-			_state.RenderState(delta) // ???: is this needed with the actors?
+			if s, ok := _state.(RenderableState); ok {
+				s.RenderState(delta)
+			}
 			//allegro.HoldBitmapDrawing(true) // ???: why does this kill it?
 			for i := uint(0); i <= _highestLayer; i++ {
 				layer, ok := _actorLayers[i]
@@ -120,7 +130,6 @@ func Loop() {
 				}
 			}
 			//allegro.HoldBitmapDrawing(false)
-			console.Render()
 			allegro.FlipDisplay()
 			allegro.ClearToColor(config.BlankColor())
 
@@ -128,16 +137,15 @@ func Loop() {
 		}
 	}
 
+	Debug("...Shutting Down")
+
 	allegro.ClearToColor(config.BlankColor())
 	allegro.FlipDisplay()
-
-	_display.SetWindowTitle("Shutting down...")
-	//console.Save()
 
 	// Tell all processes to quit immediately, then wait
 	// for them to finish before exiting.
 	NotifyAllProcesses(&quit{})
-	for _processes.Len() > 0 {
+	for len(_processes) > 0 {
 		runtime.Gosched()
 	}
 }

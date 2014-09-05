@@ -6,8 +6,10 @@ import (
 )
 
 type Process interface {
-	// Do initialization on this process.
-	InitProcess()
+	// Do initialization on this process. This is done synchronously
+	// before anything else, and if an error is returned, then
+	// the process isn't kicked off. It should never block.
+	InitProcess() error
 
 	// Handle incoming messages. If a non-nil error value is
 	// returned, then the process immediately quits and no
@@ -28,6 +30,15 @@ type Process interface {
 	CleanupProcess()
 }
 
+type BaseProcess struct{}
+
+func (p *BaseProcess) InitProcess() error                  { return nil }
+func (p *BaseProcess) HandleMessage(msg interface{}) error { return nil }
+func (p *BaseProcess) Tick() (bool, error)                 { return false, nil }
+func (p *BaseProcess) CleanupProcess()                     {}
+
+var _ Process = (*BaseProcess)(nil)
+
 type ProcessContinuer interface {
 	// NextProcess() is an optional method for processes that
 	// need to kick off another process once they're done.
@@ -37,10 +48,8 @@ type ProcessContinuer interface {
 // NotifyProcess() sends an arbitrary message to a process.
 func NotifyProcess(p Process, msg interface{}) {
 	defer func() {
-		if r := recover(); r != nil {
-			// the channel was closed, but don't let it kill
-			// the program
-		}
+		// don't let closed channels kill the program
+		recover()
 	}()
 	if ch, ok := _messengers[p]; ok {
 		ch <- msg
@@ -50,8 +59,8 @@ func NotifyProcess(p Process, msg interface{}) {
 // NotifyAllProcesses() sends an arbitrary message to all running
 // _processes.
 func NotifyAllProcesses(msg interface{}) {
-	for e := _processes.Front(); e != nil; e = e.Next() {
-		NotifyProcess(e.Value.(Process), msg)
+	for _, process := range _processes {
+		NotifyProcess(process, msg)
 	}
 }
 
@@ -74,18 +83,36 @@ func Close(p Process) {
 //       process one frame.
 //
 func RunProcess(p Process) {
+	if err := p.InitProcess(); err != nil {
+		fmt.Fprintf(os.Stderr, "error during process initialization: %s\n", err.Error())
+		return
+	}
+
 	ch := make(chan interface{})
 	_messengers[p] = ch
-	e := _processes.PushBack(p)
+	_processMutex.Lock()
+	_processes = append(_processes, p)
+	_processMutex.Unlock()
 
 	go func() {
+		defer func() {
+			_processMutex.Lock()
+			for i, process := range _processes {
+				if process == p {
+					_processes = append(_processes[:i], _processes[i+1:]...)
+					break
+				}
+			}
+			_processMutex.Unlock()
+			delete(_messengers, p)
+			close(ch)
+		}()
+
 		var (
 			alive   bool  = true // is the process running?
 			carryOn bool  = true // should the process kick off its successor, if any?
 			err     error = nil
 		)
-
-		p.InitProcess()
 
 		for alive {
 			switch msg := <-ch; msg.(type) {
@@ -116,49 +143,7 @@ func RunProcess(p Process) {
 				RunProcess(next)
 			}
 		}
-
-		_processes.Remove(e)
-		delete(_messengers, p)
-		close(ch)
 	}()
-}
-
-// DelayProcess is a process that waits a set amount of time,
-// then takes action.
-type DelayProcess struct {
-	timer float32
-
-	// Delay is the number of ticks (TODO: change to seconds)
-	// before activating.
-	Delay float32
-
-	// Activate is the function called once time runs out.
-	Activate func()
-
-	// Successor is the process to kick off after Activate
-	// is called.
-	Successor Process
-}
-
-func (p *DelayProcess) HandleMessage(msg interface{}) error {
-	return nil
-}
-
-func (p *DelayProcess) Tick() (bool, error) {
-	p.timer++
-	if p.timer >= p.Delay {
-		if p.Activate != nil {
-			p.Activate()
-		}
-		return false, nil
-	}
-	return true, nil
-}
-
-// Next() returns a reference to the process to run once
-// the delay for this one is up.
-func (p *DelayProcess) Next() Process {
-	return p.Successor
 }
 
 type tick struct{}

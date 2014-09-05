@@ -2,7 +2,6 @@ package allegory
 
 import (
 	"github.com/dradtke/allegory/config"
-	"github.com/dradtke/allegory/console"
 	"github.com/dradtke/go-allegro/allegro"
 	"github.com/dradtke/go-allegro/allegro/dialog"
 	"github.com/dradtke/go-allegro/allegro/font"
@@ -17,7 +16,7 @@ import (
 // input systems, creating the display, and starting the FPS timer. It also
 // changes the working directory to the package root relative to GOPATH,
 // if one was specified.
-func Init(state GameState, views ...View) {
+func Init(state State) {
 	runtime.LockOSThread()
 	var err error
 
@@ -81,7 +80,7 @@ func Init(state GameState, views ...View) {
 	if _display, err = allegro.CreateDisplay(w, h); err != nil {
 		Fatal(err)
 	}
-	_display.SetWindowTitle(config.Title())
+	_display.SetWindowTitle(config.WindowTitle())
 	_eventQueue.Register(_display)
 	allegro.ClearToColor(config.BlankColor())
 	allegro.FlipDisplay()
@@ -93,14 +92,14 @@ func Init(state GameState, views ...View) {
 	_eventQueue.Register(_fpsTimer)
 	_fpsTimer.Start()
 
-	// Initialize subsystems.
-	console.Init(_eventQueue)
+	_views = make([]View, 0)
+	_processes = make([]Process, 0)
 
 	// Set the state.
 	if state == nil {
 		state = &BaseState{}
 	}
-	setState(state, views...)
+	setState(state)
 }
 
 // Cleanup() destroys some common resources and runs all necessary

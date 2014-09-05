@@ -55,11 +55,11 @@ func SetDisplayFlags(value allegro.DisplayFlags) {
 	display_flags = value
 }
 
-func SetTitle(value string) {
+func SetWindowTitle(value string) {
 	title = value
 }
 
-func Title() string {
+func WindowTitle() string {
 	if title == "" {
 		return "Untitled"
 	} else {

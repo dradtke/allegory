@@ -20,18 +20,29 @@ import (
 	"os"
 	"reflect"
 	"runtime"
+	"sync/atomic"
 )
 
+type EventId uint32
+
 var (
-	_bus     = make(map[uint]*list.List)
-	_curried = make(map[*list.Element][]reflect.Value)
+	_bus            = make(map[EventId]*list.List)
+	_curried        = make(map[*list.Element][]reflect.Value)
+	_eventIdCounter EventId
 )
+
+// NewEventId() uses an internal counter to return a new valid event
+// id. It's thread-safe, but shouldn't be mixed with explicitly
+// defined id's as the values could overlap.
+func NewEventId() EventId {
+	return EventId(atomic.AddUint32((*uint32)(&_eventIdCounter), 1))
+}
 
 // Signal() calls all of the registered listeners for a given
 // event type, as long as the parameters exactly match the ones
 // that were passed into this function. For example, this works:
 //
-//      const MyEventId uint = 1
+//      const MyEventId EventId = 1
 //
 //      func onMyEventTrigger(val string) {
 //          fmt.Printf("my event trigger received: %s\n", val)
@@ -49,7 +60,7 @@ var (
 // As long as the parameters line up, listeners can take any number
 // of parameters, including 0.
 //
-func Signal(eventType uint, params ...interface{}) {
+func Signal(eventType EventId, params ...interface{}) {
 	listeners, ok := _bus[eventType]
 	if !ok || listeners.Len() == 0 {
 		return
@@ -59,7 +70,7 @@ func Signal(eventType uint, params ...interface{}) {
 		paramValues[i] = reflect.ValueOf(param)
 	}
 	numParams := len(paramValues)
-l:
+loop:
 	for e := listeners.Front(); e != nil; e = e.Next() {
 		curriedValues := _curried[e]
 		numCurried := len(curriedValues)
@@ -69,7 +80,7 @@ l:
 		if t.NumIn() != n {
 			fmt.Fprintf(os.Stderr, "invalid callback registerd for event type %d: "+
 				"need %d parameters, but have %d\n", eventType, n, t.NumIn())
-			continue l
+			continue loop
 		}
 		allValues := make([]reflect.Value, n)
 		for i := 0; i < n; i++ {
@@ -93,7 +104,7 @@ l:
 				fmt.Fprintf(os.Stderr, "invalid callback registered for event type %d: "+
 					"need %s parameter, but have %s\n",
 					eventType, paramValues[i].Type().Name(), t.In(i).Name())
-				continue l
+				continue loop
 			}
 		}
 		f.Call(allValues)
@@ -101,7 +112,7 @@ l:
 }
 
 // AddListener() registers a handler for a given event type.
-func AddListener(eventType uint, f interface{}, curry ...interface{}) error {
+func AddListener(eventType EventId, f interface{}, curry ...interface{}) error {
 	if reflect.ValueOf(f).Kind() != reflect.Func {
 		return errors.New("cannot register non-func callback")
 	}
@@ -120,7 +131,7 @@ func AddListener(eventType uint, f interface{}, curry ...interface{}) error {
 }
 
 // RemoveListener() unregisters a handler for a given event type.
-func RemoveListener(eventType uint, f interface{}) error {
+func RemoveListener(eventType EventId, f interface{}) error {
 	listeners := _bus[eventType]
 	for e := listeners.Front(); e != nil; e = e.Next() {
 		if &e.Value == &f {

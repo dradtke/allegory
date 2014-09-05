@@ -1,23 +1,21 @@
 package allegory
 
 import (
-	"container/list"
 	"github.com/dradtke/go-allegro/allegro"
+	"sync"
 )
 
-// Frames per second.
-const FPS int = 60
-
 var (
-	_display    *allegro.Display
-	_eventQueue *allegro.EventQueue
-	_fpsTimer   *allegro.Timer
+	_display    *allegro.Display    // the display window
+	_eventQueue *allegro.EventQueue // the global event queue
+	_fpsTimer   *allegro.Timer      // the FPS timer; each tick signals a new frame
 
-	_processes  list.List
-	_views      list.List
-	_messengers = make(map[Process]chan interface{})
+	_processes    []Process                            // an internal list of running processes
+	_processMutex sync.Mutex                           // a mutex used to protect _processes
+	_views        []View                               // an internal list of game views
+	_messengers   = make(map[Process]chan interface{}) // an internal map from process to message channel
 
-	_state  GameState
+	_state  State
 	_event  allegro.Event
 	_atexit = make([]func(), 0)
 
@@ -25,6 +23,8 @@ var (
 	_actors       = make(map[ActorId]Actor)
 	_actorLayers  = make(map[uint][]Actor)
 	_highestLayer uint
+
+	_stdin = make(chan string) // channel of data read from stdin
 )
 
 // Display() returns a reference to the game's display.
@@ -37,7 +37,11 @@ func EventQueue() *allegro.EventQueue {
 	return _eventQueue
 }
 
-// State() returns a reference to the game's current state.
-func State() GameState {
+// GameState() returns a reference to the game's current state.
+func GameState() State {
 	return _state
+}
+
+func Stdin() <-chan string {
+	return _stdin
 }
