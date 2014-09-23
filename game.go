@@ -1,7 +1,6 @@
 package allegory
 
 import (
-	"github.com/dradtke/go-allegro/allegro"
 	"github.com/dradtke/go-allegro/allegro/dialog"
 	"os"
 )
@@ -16,7 +15,6 @@ func Fatal(err error) {
 // Exit() causes the game to quit with the provided
 // error code.
 func Exit(code int) {
-	Cleanup()
-	allegro.Uninstall()
+	cleanup()
 	os.Exit(code)
 }

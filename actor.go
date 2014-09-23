@@ -61,8 +61,10 @@ var (
 	// Ensure that BaseActor implements Actor.
 	_ Actor = (*BaseActor)(nil)
 
-	actorType = reflect.TypeOf((*Actor)(nil)).Elem()
-	viewType  = reflect.TypeOf((*View)(nil)).Elem()
+	baseActorType     = reflect.TypeOf((*BaseActor)(nil)).Elem()
+	statefulActorType = reflect.TypeOf((*StatefulActor)(nil)).Elem()
+	actorType         = reflect.TypeOf((*Actor)(nil)).Elem()
+	viewType          = reflect.TypeOf((*View)(nil)).Elem()
 )
 
 /* -- StatefulActor -- */
@@ -71,8 +73,8 @@ var (
 // the state of an actor.
 type StatefulActor struct {
 	BaseActor
-	State  ActorState
-	Parent Actor // the struct embedding StatefulActor
+	State  ActorState // read-only
+	Parent Actor      // read-only; the struct embedding StatefulActor
 }
 
 func (a *StatefulActor) ChangeState(state ActorState) {
@@ -138,13 +140,17 @@ func AddActor(layer uint, actor Actor) ActorId {
 		_highestLayer = layer
 	}
 	actorVal := reflect.ValueOf(actor)
-	// TODO: calling Elem() before this breaks initStatefulActor
-	if base := actorVal.Elem().FieldByName("StatefulActor"); base.IsValid() {
-		initStatefulActor(base, actorVal)
+	for actorVal.Kind() == reflect.Ptr {
+		actorVal = actorVal.Elem()
+	}
+	if base := actorVal.FieldByName("StatefulActor"); base.Type() == statefulActorType {
+		base.FieldByName("Parent").Set(reflect.ValueOf(actor))
 		actorVal = base
 	}
-	if base := actorVal.FieldByName("BaseActor"); base.IsValid() {
-		initBaseActor(base, id)
+	if base := actorVal.FieldByName("BaseActor"); base.Type() == baseActorType {
+		if b, ok := base.Interface().(BaseActor); ok {
+			b.Id = id
+		}
 	}
 	actor.InitActor()
 	return id
@@ -161,10 +167,3 @@ func initStatefulActor(stateful, parent reflect.Value) {
 }
 
 var actorIdType = reflect.TypeOf(ActorId(0))
-
-// If the actor embeds BaseActor, set its Id field.
-func initBaseActor(actorVal reflect.Value, id ActorId) {
-	if idField := actorVal.FieldByName("Id"); idField.IsValid() && idField.Type() == actorIdType {
-		idField.Set(reflect.ValueOf(id))
-	}
-}

@@ -52,8 +52,8 @@ func loopExiting() {
 	Fatal(failure)
 }
 
-// Loop() is the main game loop.
-func Loop() {
+// loop() is the main game loop.
+func loop() {
 	var (
 		running = true
 		ticking = false

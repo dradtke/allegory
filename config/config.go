@@ -8,6 +8,7 @@ import (
 // Default values.
 var (
 	title          string
+	icons          []string
 	pkg_root       string
 	blank_color    allegro.Color
 	fps            = 60
@@ -55,6 +56,14 @@ func SetDisplayFlags(value allegro.DisplayFlags) {
 	display_flags = value
 }
 
+func SetWindowIcons(paths ...string) {
+	icons = paths
+}
+
+func WindowIcons() []string {
+	return icons
+}
+
 func SetWindowTitle(value string) {
 	title = value
 }
@@ -62,9 +71,8 @@ func SetWindowTitle(value string) {
 func WindowTitle() string {
 	if title == "" {
 		return "Untitled"
-	} else {
-		return title
 	}
+	return title
 }
 
 func SetPackageRoot(value string) {

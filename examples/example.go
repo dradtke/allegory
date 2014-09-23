@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/dradtke/allegory"
+	"github.com/dradtke/allegory/cache"
 	"github.com/dradtke/allegory/config"
 	"github.com/dradtke/allegory/examples/hero"
 	"github.com/dradtke/go-allegro/allegro"
@@ -19,73 +20,24 @@ const (
 )
 
 var (
-	Images map[string]*allegro.Bitmap
-	Config *allegro.Config
-	Hero   *hero.Hero
+	Hero *hero.Hero
 )
 
 /* -- Process -- */
 
-// Init is a process struct for loading game files.
-type Init struct {
-	allegory.BaseProcess
-	Finished func()
-
-	done chan struct{}
-}
-
-// The loading process kicks off a goroutine that loads the necessary game
-// assets.
-func (p *Init) InitProcess() error {
-	p.done = make(chan struct{}, 1)
-	Images = make(map[string]*allegro.Bitmap)
-	go p.loadAll()
-	return nil
-}
-
-func (p *Init) loadImages() {
+func loadImages() {
 	filepath.Walk(IMG_DIR, func(path string, info os.FileInfo, _ error) error {
 		if info.IsDir() {
 			return nil
 		}
-		if bmp, err := allegro.LoadBitmap(path); err == nil {
-			Images[path[len(IMG_DIR)+1:]] = bmp
-		}
-		return nil
+		return cache.LoadImage(path, path[len(IMG_DIR)+1:])
 	})
 }
 
-func (p *Init) loadConfig() {
-	cfg, err := allegro.LoadConfig(GAME_CONFIG)
+func loadConfig() {
+	err := cache.LoadConfig(GAME_CONFIG, "game")
 	if err != nil {
 		panic(err)
-	}
-	Config = cfg
-}
-
-func (p *Init) loadAll() {
-	p.loadImages()
-	p.loadConfig()
-	p.done <- struct{}{}
-}
-
-// Since all the heavy lifting is done in the goroutine started by
-// InitProcess(), Tick() just reports whether or not everything has finished
-// loading by checking the contents of the `done` channel.
-func (p *Init) Tick() (bool, error) {
-	select {
-	case <-p.done:
-		return false, nil
-	default:
-		return true, nil
-	}
-}
-
-// If a callback was supplied, call it to indicate that everything
-// is loaded and ready to go.
-func (p *Init) CleanupProcess() {
-	if p.Finished != nil {
-		p.Finished()
 	}
 }
 
@@ -96,14 +48,10 @@ type LoadingState struct {
 	allegory.BaseState
 }
 
-// When the state is initialized, kick off an Init process. When it completes,
-// we should change to the regular game state.
 func (s *LoadingState) InitState() {
-	init := new(Init)
-	init.Finished = func() {
+	allegory.After([]func(){loadImages, loadConfig}, func() {
 		allegory.NewState(new(GameState))
-	}
-	allegory.RunProcess(init)
+	})
 }
 
 type GameState struct {
@@ -113,20 +61,20 @@ type GameState struct {
 func (s *GameState) InitState() {
 	var (
 		frame *allegro.Bitmap
-		ok    bool = true
+		err   error = nil
 	)
-	hero.ImgStanding = Images["standing.png"] // TODO: find a way to move this to InitActor()?
+	hero.ImgStanding = cache.Image("standing.png") // TODO: find a way to move this to InitActor()?
 	hero.ImgWalking = make([]*allegro.Bitmap, 0)
-	for i := 1; ok; i++ {
-		frame, ok = Images["walking-"+strconv.Itoa(i)+".png"]
-		if ok {
+	for i := 1; err == nil; i++ {
+		frame, err = cache.FindImage("walking-" + strconv.Itoa(i) + ".png")
+		if err == nil {
 			hero.ImgWalking = append(hero.ImgWalking, frame)
 		}
 	}
 
 	h := new(hero.Hero)
 	h.State = new(hero.Standing)
-	h.InitConfig(Config)
+	h.InitConfig(cache.Config("game"))
 	allegory.AddActor(1, h)
 
 	heroView := new(HeroView)
@@ -178,8 +126,7 @@ func ReadInput() {
 
 func main() {
 	config.SetWindowTitle("Let's Go!")
-	allegory.Init(new(LoadingState))
-	defer allegory.Cleanup()
-	go ReadInput()
-	allegory.Loop()
+	config.SetWindowIcons(IMG_DIR + "/standing.png")
+
+	allegory.Run(new(LoadingState))
 }

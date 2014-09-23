@@ -3,6 +3,7 @@ package allegory
 import (
 	"fmt"
 	"os"
+	"reflect"
 )
 
 type Process interface {
@@ -30,7 +31,9 @@ type Process interface {
 	CleanupProcess()
 }
 
-type BaseProcess struct{}
+type BaseProcess struct {
+	OnComplete func()
+}
 
 func (p *BaseProcess) InitProcess() error                  { return nil }
 func (p *BaseProcess) HandleMessage(msg interface{}) error { return nil }
@@ -137,6 +140,18 @@ func RunProcess(p Process) {
 		}
 
 		p.CleanupProcess()
+
+		processVal := reflect.ValueOf(p)
+		for processVal.Kind() == reflect.Ptr || processVal.Kind() == reflect.Interface {
+			processVal = processVal.Elem()
+		}
+		if base := processVal.FieldByName("BaseProcess"); base.IsValid() {
+			if b, ok := base.Interface().(BaseProcess); ok {
+				if b.OnComplete != nil {
+					b.OnComplete()
+				}
+			}
+		}
 
 		if p, ok := p.(ProcessContinuer); carryOn && ok {
 			if next := p.NextProcess(); next != nil {

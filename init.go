@@ -16,7 +16,7 @@ import (
 // input systems, creating the display, and starting the FPS timer. It also
 // changes the working directory to the package root relative to GOPATH,
 // if one was specified.
-func Init(state State) {
+func initialize(state State) {
 	runtime.LockOSThread()
 	var err error
 
@@ -29,12 +29,6 @@ func Init(state State) {
 			}
 		}
 	}
-
-	// Allegro
-	if err = allegro.Install(); err != nil {
-		panic(err)
-	}
-	_atexit = append(_atexit, allegro.Uninstall)
 
 	// Native Dialogs Addon
 	if err = dialog.Install(); err != nil {
@@ -81,6 +75,18 @@ func Init(state State) {
 		Fatal(err)
 	}
 	_display.SetWindowTitle(config.WindowTitle())
+	if icons := config.WindowIcons(); icons != nil {
+		_displayIcons = make([]*allegro.Bitmap, 0)
+		for _, icon := range icons {
+			bmp, err := allegro.LoadBitmap(icon)
+			if err != nil {
+				Error(err)
+				continue
+			}
+			_displayIcons = append(_displayIcons, bmp)
+		}
+		_display.SetDisplayIcons(_displayIcons)
+	}
 	_eventQueue.Register(_display)
 	allegro.ClearToColor(config.BlankColor())
 	allegro.FlipDisplay()
@@ -102,9 +108,9 @@ func Init(state State) {
 	setState(state)
 }
 
-// Cleanup() destroys some common resources and runs all necessary
+// cleanup() destroys some common resources and runs all necessary
 // _atexit functions.
-func Cleanup() {
+func cleanup() {
 	if _fpsTimer != nil {
 		_fpsTimer.Destroy()
 	}
@@ -120,4 +126,14 @@ func Cleanup() {
 	}
 
 	runtime.UnlockOSThread()
+}
+
+// Run() initializes Allegro and Allegory and kicks off the main game loop.
+// It won't return until the game ends.
+func Run(initialState State) {
+	allegro.Run(func() {
+		initialize(initialState)
+		defer cleanup()
+		loop()
+	})
 }

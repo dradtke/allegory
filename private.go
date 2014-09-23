@@ -6,9 +6,10 @@ import (
 )
 
 var (
-	_display    *allegro.Display    // the display window
-	_eventQueue *allegro.EventQueue // the global event queue
-	_fpsTimer   *allegro.Timer      // the FPS timer; each tick signals a new frame
+	_display      *allegro.Display    // the display window
+	_displayIcons []*allegro.Bitmap   // icons used in the display
+	_eventQueue   *allegro.EventQueue // the global event queue
+	_fpsTimer     *allegro.Timer      // the FPS timer; each tick signals a new frame
 
 	_processes    []Process                            // an internal list of running processes
 	_processMutex sync.Mutex                           // a mutex used to protect _processes
