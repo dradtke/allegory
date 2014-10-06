@@ -61,10 +61,11 @@ var (
 	// Ensure that BaseActor implements Actor.
 	_ Actor = (*BaseActor)(nil)
 
-	baseActorType     = reflect.TypeOf((*BaseActor)(nil)).Elem()
-	statefulActorType = reflect.TypeOf((*StatefulActor)(nil)).Elem()
-	actorType         = reflect.TypeOf((*Actor)(nil)).Elem()
-	viewType          = reflect.TypeOf((*View)(nil)).Elem()
+	baseActorType      = reflect.TypeOf((*BaseActor)(nil)).Elem()
+	baseActorStateType = reflect.TypeOf((*BaseActorState)(nil)).Elem()
+	statefulActorType  = reflect.TypeOf((*StatefulActor)(nil)).Elem()
+	actorType          = reflect.TypeOf((*Actor)(nil)).Elem()
+	viewType           = reflect.TypeOf((*View)(nil)).Elem()
 )
 
 /* -- StatefulActor -- */
@@ -82,20 +83,20 @@ func (a *StatefulActor) ChangeState(state ActorState) {
 		return
 	}
 	a.State = state
-	a.State.InitActorState(a.Parent)
+	a.State.InitActorState()
 }
 
 func (a *StatefulActor) InitActor() {
 	a.BaseActor.InitActor()
 	if a.State != nil {
-		a.State.InitActorState(a.Parent)
+		a.State.InitActorState()
 	}
 }
 
 func (a *StatefulActor) UpdateActor() {
 	a.BaseActor.UpdateActor()
 	if a.State != nil {
-		newState := a.State.UpdateActorState(a.Parent)
+		newState := a.State.UpdateActorState()
 		if newState != nil {
 			a.ChangeState(newState)
 		}
@@ -104,25 +105,27 @@ func (a *StatefulActor) UpdateActor() {
 
 func (a *StatefulActor) RenderActor(delta float32) {
 	if a.State != nil {
-		a.State.RenderActorState(a.Parent, delta)
+		a.State.RenderActorState(delta)
 	}
 }
 
 /* -- ActorState -- */
 
 type ActorState interface {
-	InitActorState(Actor)
-	UpdateActorState(Actor) ActorState
-	RenderActorState(Actor, float32)
-	CleanupActorState(Actor)
+	InitActorState()
+	UpdateActorState() ActorState
+	RenderActorState(delta float32)
+	CleanupActorState()
 }
 
-type BaseActorState struct{}
+type BaseActorState struct {
+	Actor Actor
+}
 
-func (a *BaseActorState) InitActorState(actor Actor)                  {}
-func (a *BaseActorState) UpdateActorState(actor Actor) ActorState     { return nil }
-func (a *BaseActorState) RenderActorState(actor Actor, delta float32) {}
-func (a *BaseActorState) CleanupActorState(actor Actor)               {}
+func (a *BaseActorState) InitActorState()                {}
+func (a *BaseActorState) UpdateActorState() ActorState   { return nil }
+func (a *BaseActorState) RenderActorState(delta float32) {}
+func (a *BaseActorState) CleanupActorState()             {}
 
 var _ ActorState = (*BaseActorState)(nil)
 
@@ -140,17 +143,8 @@ func AddActor(layer uint, actor Actor) ActorId {
 		_highestLayer = layer
 	}
 	actorVal := reflect.ValueOf(actor)
-	for actorVal.Kind() == reflect.Ptr {
+	for actorVal.Kind() == reflect.Ptr || actorVal.Kind() == reflect.Interface {
 		actorVal = actorVal.Elem()
-	}
-	if base := actorVal.FieldByName("StatefulActor"); base.Type() == statefulActorType {
-		base.FieldByName("Parent").Set(reflect.ValueOf(actor))
-		actorVal = base
-	}
-	if base := actorVal.FieldByName("BaseActor"); base.Type() == baseActorType {
-		if b, ok := base.Interface().(BaseActor); ok {
-			b.Id = id
-		}
 	}
 	actor.InitActor()
 	return id

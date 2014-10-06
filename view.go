@@ -46,7 +46,8 @@ var _ View = (*BaseView)(nil)
 // to whether or not that key is currently pressed.
 type BaseKeyView struct {
 	BaseView
-	IsDown map[allegro.KeyCode]bool
+	Initialized bool
+	IsDown      map[allegro.KeyCode]bool
 }
 
 func (v *BaseKeyView) HandleEvent(event interface{}) bool {
@@ -68,11 +69,18 @@ func AddView(view View) {
 		viewVal = viewVal.Elem()
 	}
 	if base := viewVal.FieldByName("BaseKeyView"); base.IsValid() {
-		initBaseKeyView(base)
+		if inited := base.FieldByName("Initialized"); inited.IsValid() && inited.Interface().(bool) == false {
+			if isDown := base.FieldByName("IsDown"); isDown.IsValid() {
+				isDown.Set(reflect.MakeMap(isDown.Type()))
+			}
+			inited.Set(reflect.ValueOf(true))
+		}
 		viewVal = base
 	}
 	if base := viewVal.FieldByName("BaseView"); base.IsValid() {
-		initBaseView(base, reflect.ValueOf(_state))
+		if s := base.FieldByName("State"); s.IsValid() && s.Type().Implements(stateType) {
+			s.Set(reflect.ValueOf(_state))
+		}
 	}
 	view.InitView()
 	_views = append(_views, view)
@@ -88,16 +96,4 @@ func RemoveView(view View) {
 	}
 }
 
-func initBaseKeyView(baseViewVal reflect.Value) {
-	if isDown := baseViewVal.FieldByName("IsDown"); isDown.IsValid() {
-		isDown.Set(reflect.MakeMap(isDown.Type()))
-	}
-}
-
 var stateType = reflect.TypeOf((*State)(nil)).Elem()
-
-func initBaseView(baseViewVal, stateVal reflect.Value) {
-	if s := baseViewVal.FieldByName("State"); s.IsValid() && s.Type().Implements(stateType) {
-		s.Set(stateVal)
-	}
-}

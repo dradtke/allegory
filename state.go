@@ -42,7 +42,7 @@ func NewState(state State) {
 // NewStateNow() tells all processes to quit,
 // waits for them to finish, then changes the game state.
 func NewStateNow(state State) {
-	NotifyAllProcesses(quit{})
+	NotifyAllProcesses(&quit{})
 	for len(_processes) > 0 {
 		runtime.Gosched()
 	}
@@ -65,6 +65,10 @@ func setState(state State) {
 		view.CleanupView()
 	}
 	_views = make([]View, 0)
+	for _, actor := range _actors {
+		actor.CleanupActor()
+	}
+	_actors = make(map[ActorId]Actor)
 	runtime.GC()
 
 	_state = state

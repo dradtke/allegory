@@ -3,7 +3,8 @@ package cache
 import (
 	"fmt"
 	"github.com/dradtke/go-allegro/allegro"
-	"sync"
+	"os"
+	"path/filepath"
 )
 
 var _images = make(map[string]*allegro.Bitmap)
@@ -37,26 +38,17 @@ func LoadImage(path, key string) error {
 	return nil
 }
 
-// LoadImages() loads multiple images into the
-// cache.
-func LoadImages(paths []string, pathToKey func(string) string) []error {
-	var (
-		n    = len(paths)
-		errs = make([]error, 0, n)
-		wg   sync.WaitGroup
-	)
-	wg.Add(n)
-	for _, path := range paths {
-		go func(path string) {
-			err := LoadImage(path, pathToKey(path))
-			if err != nil {
-				errs = append(errs, err)
-			}
-			wg.Done()
-		}(path)
-	}
-	wg.Wait()
-	return errs
+// LoadImages() walks root recursively loading all the images that it can.
+// It returns the first error encountered, which may or may not be meaningful
+// depending on whether or not root contains non-image files.
+func LoadImages(root string) error {
+	root_len := len(root)
+	return filepath.Walk(root, func(path string, info os.FileInfo, _ error) error {
+		if info.IsDir() {
+			return nil
+		}
+		return LoadImage(path, path[root_len+1:])
+	})
 }
 
 // FindImage() finds an image in the cache. If it
