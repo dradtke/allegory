@@ -1,8 +1,10 @@
 package loading
 
 import (
+	"fmt"
 	"github.com/dradtke/allegory"
 	"github.com/dradtke/allegory/cache"
+	"github.com/dradtke/go-allegro/allegro"
 )
 
 const (
@@ -36,5 +38,9 @@ type LoadingState struct {
 }
 
 func (s *LoadingState) InitState() {
+	fmt.Printf("left: %d\n", allegro.KEY_LEFT)
+	fmt.Printf("right: %d\n", allegro.KEY_RIGHT)
+	fmt.Printf("space: %d\n", allegro.KEY_SPACE)
+	fmt.Printf("enter: %d\n", allegro.KEY_ENTER)
 	allegory.After([]func(){loadImages, loadConfig}, s.OnLoad)
 }

@@ -2,20 +2,31 @@ package game
 
 import (
 	"github.com/dradtke/allegory"
+	"github.com/dradtke/allegory/config"
 	"github.com/dradtke/go-allegro/allegro"
+)
+
+const (
+	PAUSE_MSG = " [Paused]"
 )
 
 type PausedState struct {
 	allegory.BaseState
-	snapshot *allegro.Bitmap
+	screenshot *allegro.Bitmap
 }
 
 func (s *PausedState) InitState() {
+	allegory.Display().SetWindowTitle(config.WindowTitle() + PAUSE_MSG)
 	allegory.AddView(new(PausedView))
 }
 
 func (s *PausedState) RenderState(delta float32) {
-	s.snapshot.Draw(0, 0, allegro.FLIP_NONE)
+	s.screenshot.Draw(0, 0, allegro.FLIP_NONE)
+}
+
+func (s *PausedState) CleanupState() {
+	allegory.Display().SetWindowTitle(config.WindowTitle())
+	s.screenshot.Destroy()
 }
 
 type PausedView struct {

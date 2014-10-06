@@ -17,10 +17,12 @@ type PlayingState struct {
 }
 
 func (s *PlayingState) InitState() {
+	cfg := cache.Config("game")
+
 	if s.hero == nil {
 		s.hero = new(Hero)
 		s.hero.State = NewStanding(s.hero)
-		s.hero.InitConfig(cache.Config("game"))
+		s.hero.InitConfig(cfg)
 	} else {
 		if _, ok := s.hero.State.(*Jumping); !ok {
 			s.hero.State = &forceValidation{}
@@ -31,6 +33,7 @@ func (s *PlayingState) InitState() {
 	if s.heroView == nil {
 		s.heroView = new(HeroView)
 		s.heroView.hero = s.hero
+		s.heroView.InitConfig(cfg)
 	}
 	allegory.AddView(s.heroView)
 

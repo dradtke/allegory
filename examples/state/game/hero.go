@@ -18,24 +18,36 @@ const (
 type HeroView struct {
 	allegory.BaseKeyView
 	hero *Hero
+
+	Left  allegro.KeyCode
+	Right allegro.KeyCode
+	Jump  allegro.KeyCode
+	Pause allegro.KeyCode
 }
 
-func (v *HeroView) validateState() {
-	if _, ok := v.hero.State.(*Jumping); ok {
-		// remain jumping
-		return
+func (v *HeroView) InitConfig(cfg *allegro.Config) {
+	if left, err := cfg.IntValue("Controls", "left"); err == nil {
+		v.Left = allegro.KeyCode(left)
+	} else {
+		panic(err)
 	}
 
-	var (
-		left  = v.IsDown[allegro.KEY_LEFT]
-		right = v.IsDown[allegro.KEY_RIGHT]
-	)
-	if left && !right {
-		v.hero.HandleCommand(&Walk{-1})
-	} else if right && !left {
-		v.hero.HandleCommand(&Walk{1})
+	if right, err := cfg.IntValue("Controls", "right"); err == nil {
+		v.Right = allegro.KeyCode(right)
 	} else {
-		v.hero.HandleCommand(&Stand{})
+		panic(err)
+	}
+
+	if jump, err := cfg.IntValue("Controls", "jump"); err == nil {
+		v.Jump = allegro.KeyCode(jump)
+	} else {
+		panic(err)
+	}
+
+	if pause, err := cfg.IntValue("Controls", "pause"); err == nil {
+		v.Pause = allegro.KeyCode(pause)
+	} else {
+		panic(err)
 	}
 }
 
@@ -48,9 +60,9 @@ func (v *HeroView) UpdateView() {
 func (v *HeroView) HandleEvent(event interface{}) bool {
 	v.BaseKeyView.HandleEvent(event)
 
-	if e, ok := event.(allegro.KeyDownEvent); ok && e.KeyCode() == allegro.KEY_ENTER {
+	if e, ok := event.(allegro.KeyDownEvent); ok && e.KeyCode() == v.Pause {
 		paused := new(PausedState)
-		paused.snapshot, _ = allegory.Display().Backbuffer().Clone()
+		paused.screenshot, _ = allegory.Display().Backbuffer().Clone()
 		allegory.NewStateNow(paused)
 		return true
 	}
@@ -60,15 +72,15 @@ func (v *HeroView) HandleEvent(event interface{}) bool {
 		switch e := event.(type) {
 		case allegro.KeyDownEvent:
 			switch e.KeyCode() {
-			case allegro.KEY_LEFT:
+			case v.Left:
 				v.hero.HandleCommand(&Walk{-1})
 				return true
 
-			case allegro.KEY_RIGHT:
+			case v.Right:
 				v.hero.HandleCommand(&Walk{1})
 				return true
 
-			case allegro.KEY_SPACE:
+			case v.Jump:
 				v.hero.HandleCommand(&Jump{0})
 				return true
 			}
@@ -78,13 +90,13 @@ func (v *HeroView) HandleEvent(event interface{}) bool {
 		switch e := event.(type) {
 		case allegro.KeyUpEvent:
 			switch e.KeyCode() {
-			case allegro.KEY_LEFT:
+			case v.Left:
 				if state.dir < 0 {
 					v.hero.HandleCommand(&Stand{})
 					return true
 				}
 
-			case allegro.KEY_RIGHT:
+			case v.Right:
 				if state.dir > 0 {
 					v.hero.HandleCommand(&Stand{})
 					return true
@@ -93,7 +105,7 @@ func (v *HeroView) HandleEvent(event interface{}) bool {
 
 		case allegro.KeyDownEvent:
 			switch e.KeyCode() {
-			case allegro.KEY_SPACE:
+			case v.Jump:
 				v.hero.HandleCommand(&Jump{state.dir})
 				return true
 			}
@@ -101,6 +113,25 @@ func (v *HeroView) HandleEvent(event interface{}) bool {
 	}
 
 	return false
+}
+
+func (v *HeroView) validateState() {
+	if _, ok := v.hero.State.(*Jumping); ok {
+		// remain jumping
+		return
+	}
+
+	var (
+		left  = v.IsDown[v.Left]
+		right = v.IsDown[v.Right]
+	)
+	if left && !right {
+		v.hero.HandleCommand(&Walk{-1})
+	} else if right && !left {
+		v.hero.HandleCommand(&Walk{1})
+	} else {
+		v.hero.HandleCommand(&Stand{})
+	}
 }
 
 type Hero struct {
