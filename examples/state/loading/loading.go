@@ -1,7 +1,6 @@
 package loading
 
 import (
-	"fmt"
 	"github.com/dradtke/allegory"
 	"github.com/dradtke/allegory/cache"
 	"github.com/dradtke/go-allegro/allegro"
@@ -25,7 +24,7 @@ func loadImages() {
 func loadConfig() {
 	err := cache.LoadConfig(GAME_CONFIG, "game")
 	if err != nil {
-		panic(err)
+		Fatal(err)
 	}
 }
 
@@ -33,14 +32,11 @@ func loadConfig() {
 
 // LoadingState is a game state for loading assets.
 type LoadingState struct {
-	allegory.BaseState
+	allegory.BaseGameState
 	OnLoad func()
 }
 
-func (s *LoadingState) InitState() {
-	fmt.Printf("left: %d\n", allegro.KEY_LEFT)
-	fmt.Printf("right: %d\n", allegro.KEY_RIGHT)
-	fmt.Printf("space: %d\n", allegro.KEY_SPACE)
-	fmt.Printf("enter: %d\n", allegro.KEY_ENTER)
+func (s *LoadingState) InitGameState() {
+	allegro.SetBlender(allegro.ADD, allegro.ALPHA, allegro.INVERSE_ALPHA)
 	allegory.After([]func(){loadImages, loadConfig}, s.OnLoad)
 }

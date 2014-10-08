@@ -52,8 +52,9 @@ func (v *HeroView) InitConfig(cfg *allegro.Config) {
 }
 
 func (v *HeroView) UpdateView() {
-	if _, ok := v.hero.State.(*forceValidation); ok {
+	if _, ok := v.hero.State.(*transitioning); ok || v.hero.needsStateValidation {
 		v.validateState()
+		v.hero.needsStateValidation = false
 	}
 }
 
@@ -61,9 +62,7 @@ func (v *HeroView) HandleEvent(event interface{}) bool {
 	v.BaseKeyView.HandleEvent(event)
 
 	if e, ok := event.(allegro.KeyDownEvent); ok && e.KeyCode() == v.Pause {
-		paused := new(PausedState)
-		paused.screenshot, _ = allegory.Display().Backbuffer().Clone()
-		allegory.NewStateNow(paused)
+		allegory.NewState(new(PausedState))
 		return true
 	}
 
@@ -125,6 +124,7 @@ func (v *HeroView) validateState() {
 		left  = v.IsDown[v.Left]
 		right = v.IsDown[v.Right]
 	)
+
 	if left && !right {
 		v.hero.HandleCommand(&Walk{-1})
 	} else if right && !left {
@@ -138,6 +138,8 @@ type Hero struct {
 	allegory.StatefulActor
 	GroundY float32
 	dir     int8 // 1 for right, -1 for left
+
+	needsStateValidation bool
 
 	// configurable values
 	Jumpspeed, Gravity, Walkspeed float32
@@ -197,14 +199,14 @@ type Walking struct {
 }
 
 func NewWalking(h *Hero) *Walking {
+	s := new(Walking)
+	s.hero = h
+	s.images = make([]*allegro.Bitmap, 0)
+
 	var (
 		frame *allegro.Bitmap
 		err   error = nil
 	)
-
-	s := new(Walking)
-	s.hero = h
-	s.images = make([]*allegro.Bitmap, 0)
 
 	for i := 1; err == nil; i++ {
 		frame, err = cache.FindImage("walking-" + strconv.Itoa(i) + ".png")
@@ -273,7 +275,9 @@ func (s *Standing) RenderActorState(delta float32) {
 }
 
 func (h *Hero) stand() {
-	h.ChangeState(NewStanding(h))
+	if _, ok := h.State.(*Standing); !ok {
+		h.ChangeState(NewStanding(h))
+	}
 }
 
 /* -- Jumping -- */
@@ -302,7 +306,7 @@ func (s *Jumping) UpdateActorState() allegory.ActorState {
 	s.hero.Move(s.hero.Walkspeed*float32(s.inertia), s.jumpspeed)
 	if s.hero.Y >= s.hero.GroundY {
 		s.hero.Y = s.hero.GroundY
-		return &forceValidation{}
+		return new(transitioning)
 	}
 	s.jumpspeed = float32(math.Min(float64(s.hero.Jumpspeed), float64(s.jumpspeed+s.hero.Gravity)))
 	return nil
@@ -322,9 +326,7 @@ func (a *Hero) jump(inertia int8) {
 	a.ChangeState(jumping)
 }
 
-// forceValidation is just a placeholder state that will immediately get switched to either standing
-// or walking, depending on what's held down.
-type forceValidation struct {
+type transitioning struct {
 	allegory.BaseActorState
 }
 

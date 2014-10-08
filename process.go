@@ -18,12 +18,14 @@ type Process interface {
 	HandleMessage(msg interface{}) error
 
 	// Tell the process to step forward one frame.
+	//
 	// Returning a non-nil error value will cause the process
-	// to log the error and quit. Otherwise, the boolean
-	// return value should be `true` to indicate that it needs
-	// to continue processing, or `false` to indicate a
-	// successful termination.
-	// It is essentially a special case of HandleMessage().
+	// to log the error and quit.
+	//
+	// Otherwise, the boolean return value should be `true` to
+	// indicate that it needs to continue processing, or `false`
+	// to indicate a successful termination, which will cause
+	// its successor, if any, to be run.
 	Tick() (bool, error)
 
 	// Do cleanup after this process exits, but before the
@@ -60,18 +62,26 @@ func NotifyProcess(p Process, msg interface{}) {
 }
 
 // NotifyAllProcesses() sends an arbitrary message to all running
-// _processes.
+// processes.
 func NotifyAllProcesses(msg interface{}) {
 	for _, process := range _processes {
 		NotifyProcess(process, msg)
 	}
 }
 
+// NotifyWhere() sends an arbitrary message to each running process
+// that matches the filter criteria.
+func NotifyWhere(msg interface{}, filter func(Process) bool) {
+	for _, process := range _processes {
+		if filter(process) {
+			NotifyProcess(process, msg)
+		}
+	}
+}
+
 // Close() sends a Quit message to a process.
 func Close(p Process) {
-	if ch, ok := _messengers[p]; ok {
-		ch <- &quit{}
-	}
+	NotifyProcess(p, &quit{})
 }
 
 // RunProcess() takes a Process and kicks it off in a new
@@ -80,7 +90,7 @@ func Close(p Process) {
 // handler, with two special cases:
 //
 //    1. Quit messages, which cause the process to quit and
-//       clean up without kicking off additional _processes
+//       clean up without kicking off additional processes.
 //
 //    2. Tick messages, which simply tell the process to
 //       process one frame.

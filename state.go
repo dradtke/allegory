@@ -4,62 +4,35 @@ import (
 	"runtime"
 )
 
-// State is an interface to the game's current state. Only one game
+// GameState is an interface to the game's current state. Only one game
 // state is active at any point in time, and states can be changed
-// by using either NewState() or NewStateNow().
-type State interface {
+// by using one of the NewState*() functions.
+type GameState interface {
 	// Perform initialization; this method is called once, when the
 	// state becomes the game state.
-	InitState()
+	InitGameState()
 
 	// Called once per frame to perform any necessary updates.
-	UpdateState()
+	UpdateGameState()
 
 	// Perform cleanup; this method is called once, when the state
 	// has been replaced by another one.
-	CleanupState()
+	CleanupGameState()
 }
 
-type RenderableState interface {
-	State
+type RenderableGameState interface {
+	GameState
 
 	// Render; this is called (ideally) once per frame, with a delta
 	// value calculated based on lag.
-	RenderState(delta float32)
+	RenderGameState(delta float32)
 }
 
-// NewState() waits for all processes to finish without
-// blocking the current goroutine, then changes the game state.
-func NewState(state State) {
-	go func() {
-		for len(_processes) > 0 {
-			runtime.Gosched()
-		}
-		setState(state)
-	}()
-}
-
-// NewStateNow() tells all processes to quit,
-// waits for them to finish, then changes the game state.
-func NewStateNow(state State) {
-	NotifyAllProcesses(&quit{})
-	for len(_processes) > 0 {
-		runtime.Gosched()
-	}
-	setState(state)
-}
-
-type BaseState struct{}
-
-func (s *BaseState) InitState()    {}
-func (s *BaseState) UpdateState()  {}
-func (s *BaseState) CleanupState() {}
-
-var _ State = (*BaseState)(nil)
-
-func setState(state State) {
+// NewState() changes the state, regardless of the status of currently
+// running processes.
+func NewState(state GameState) {
 	if _state != nil {
-		_state.CleanupState()
+		_state.CleanupGameState()
 	}
 	for _, view := range _views {
 		view.CleanupView()
@@ -68,9 +41,40 @@ func setState(state State) {
 	for _, actor := range _actors {
 		actor.CleanupActor()
 	}
-	_actors = make(map[ActorId]Actor)
+	_actors = make([]Actor, 0)
+	_actorLayers = make(map[uint][]Actor)
+
 	runtime.GC()
 
 	_state = state
-	_state.InitState()
+	_state.InitGameState()
 }
+
+// NewStateWait() waits for all processes to finish without
+// blocking the current goroutine, then changes the game state.
+func NewStateWait(state GameState) {
+	go func() {
+		for len(_processes) > 0 {
+			runtime.Gosched()
+		}
+		NewState(state)
+	}()
+}
+
+// NewStateNow() tells all processes to quit,
+// waits for them to finish, then changes the game state.
+func NewStateNow(state GameState) {
+	NotifyAllProcesses(&quit{})
+	for len(_processes) > 0 {
+		runtime.Gosched()
+	}
+	NewState(state)
+}
+
+type BaseGameState struct{}
+
+func (s *BaseGameState) InitGameState()    {}
+func (s *BaseGameState) UpdateGameState()  {}
+func (s *BaseGameState) CleanupGameState() {}
+
+var _ GameState = (*BaseGameState)(nil)

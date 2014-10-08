@@ -16,7 +16,7 @@ import (
 // input systems, creating the display, and starting the FPS timer. It also
 // changes the working directory to the package root relative to GOPATH,
 // if one was specified.
-func initialize(state State) {
+func initialize(state GameState) {
 	runtime.LockOSThread()
 	var err error
 
@@ -103,9 +103,9 @@ func initialize(state State) {
 
 	// Set the state.
 	if state == nil {
-		state = &BaseState{}
+		state = &BaseGameState{}
 	}
-	setState(state)
+	NewState(state)
 }
 
 // cleanup() destroys some common resources and runs all necessary
@@ -130,7 +130,7 @@ func cleanup() {
 
 // Run() initializes Allegro and Allegory and kicks off the main game loop.
 // It won't return until the game ends.
-func Run(initialState State) {
+func Run(initialState GameState) {
 	allegro.Run(func() {
 		initialize(initialState)
 		defer cleanup()

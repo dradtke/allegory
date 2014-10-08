@@ -10,13 +10,13 @@ var (
 )
 
 type PlayingState struct {
-	allegory.BaseState
+	allegory.BaseGameState
 
 	heroView *HeroView
 	hero     *Hero
 }
 
-func (s *PlayingState) InitState() {
+func (s *PlayingState) InitGameState() {
 	cfg := cache.Config("game")
 
 	if s.hero == nil {
@@ -25,7 +25,7 @@ func (s *PlayingState) InitState() {
 		s.hero.InitConfig(cfg)
 	} else {
 		if _, ok := s.hero.State.(*Jumping); !ok {
-			s.hero.State = &forceValidation{}
+			s.hero.needsStateValidation = true
 		}
 	}
 	allegory.AddActor(1, s.hero)

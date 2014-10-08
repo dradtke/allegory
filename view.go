@@ -33,7 +33,7 @@ type PlayerView interface {
 // BaseView provides a default View implementation with a State field
 // for referencing the active state instance.
 type BaseView struct {
-	State State
+	State GameState
 }
 
 func (v *BaseView) InitView()    {}
@@ -96,4 +96,4 @@ func RemoveView(view View) {
 	}
 }
 
-var stateType = reflect.TypeOf((*State)(nil)).Elem()
+var stateType = reflect.TypeOf((*GameState)(nil)).Elem()

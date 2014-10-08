@@ -109,29 +109,14 @@ func loop() {
 				for _, view := range _views {
 					view.UpdateView()
 				}
-				_state.UpdateState()
+				_state.UpdateGameState()
 				lag -= step
 			}
 
-			delta := float32(lag / step)
-			if s, ok := _state.(RenderableState); ok {
-				s.RenderState(delta)
-			}
-			//allegro.HoldBitmapDrawing(true) // ???: why does this kill it?
-			for i := uint(0); i <= _highestLayer; i++ {
-				layer, ok := _actorLayers[i]
-				if !ok {
-					continue
-				}
-				for _, actor := range layer {
-					if actor, ok := actor.(RenderableActor); ok {
-						actor.RenderActor(delta)
-					}
-				}
-			}
-			//allegro.HoldBitmapDrawing(false)
-			allegro.FlipDisplay()
 			allegro.ClearToColor(config.BlankColor())
+
+			delta := float32(lag / step)
+			render(delta)
 
 			ticking = false
 		}
@@ -148,4 +133,24 @@ func loop() {
 	for len(_processes) > 0 {
 		runtime.Gosched()
 	}
+}
+
+func render(delta float32) {
+	if s, ok := _state.(RenderableGameState); ok {
+		s.RenderGameState(delta)
+	}
+	//allegro.HoldBitmapDrawing(true) // ???: why does this kill it?
+	for i := uint(0); i <= _highestLayer; i++ {
+		layer, ok := _actorLayers[i]
+		if !ok {
+			continue
+		}
+		for _, actor := range layer {
+			if actor, ok := actor.(RenderableActor); ok {
+				actor.RenderActor(delta)
+			}
+		}
+	}
+	//allegro.HoldBitmapDrawing(false)
+	allegro.FlipDisplay()
 }

@@ -3,14 +3,27 @@ package allegory
 import (
 	"github.com/dradtke/go-allegro/allegro"
 	"reflect"
-	"sync/atomic"
 )
 
-type ActorId uint32
-
-func (id ActorId) Destroy() {
-	_actors[id].CleanupActor()
-	delete(_actors, id)
+func DestroyActor(a Actor) {
+	for i, actor := range _actors {
+		if actor == a {
+			_actors = append(_actors[:i], _actors[i+1:]...)
+			break
+		}
+	}
+	for i := uint(0); i < _highestLayer; i++ {
+		layer, ok := _actorLayers[i]
+		if !ok {
+			continue
+		}
+		for j, actor := range layer {
+			if actor == a {
+				layer = append(layer[:j], layer[j+1:]...)
+			}
+		}
+		_actorLayers[i] = layer
+	}
 }
 
 /* -- Actor Interfaces -- */
@@ -35,8 +48,6 @@ type animation struct {
 /* -- BaseActor -- */
 
 type BaseActor struct {
-	Id ActorId
-
 	// X and Y are the coordinates of the actor.
 	X, Y float32
 
@@ -131,9 +142,8 @@ var _ ActorState = (*BaseActorState)(nil)
 
 /* -- Related methods -- */
 
-func AddActor(layer uint, actor Actor) ActorId {
-	id := ActorId(atomic.AddUint32((*uint32)(&_lastActorId), 1))
-	_actors[id] = actor
+func AddActor(layer uint, actor Actor) {
+	_actors = append(_actors, actor)
 	if l, ok := _actorLayers[layer]; ok {
 		l = append(l, actor)
 	} else {
@@ -147,11 +157,6 @@ func AddActor(layer uint, actor Actor) ActorId {
 		actorVal = actorVal.Elem()
 	}
 	actor.InitActor()
-	return id
-}
-
-func FindActor(id ActorId) Actor {
-	return _actors[id]
 }
 
 func initStatefulActor(stateful, parent reflect.Value) {
@@ -159,5 +164,3 @@ func initStatefulActor(stateful, parent reflect.Value) {
 		stateful.FieldByName("Parent").Set(parent)
 	}
 }
-
-var actorIdType = reflect.TypeOf(ActorId(0))
