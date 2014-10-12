@@ -24,7 +24,7 @@ func loadImages() {
 func loadConfig() {
 	err := cache.LoadConfig(GAME_CONFIG, "game")
 	if err != nil {
-		Fatal(err)
+		allegory.Fatal(err)
 	}
 }
 

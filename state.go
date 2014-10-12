@@ -1,6 +1,7 @@
 package allegory
 
 import (
+	"container/list"
 	"runtime"
 )
 
@@ -31,23 +32,17 @@ type RenderableGameState interface {
 // NewState() changes the state, regardless of the status of currently
 // running processes.
 func NewState(state GameState) {
-	if _state != nil {
-		_state.CleanupGameState()
-	}
-	for _, view := range _views {
-		view.CleanupView()
-	}
-	_views = make([]View, 0)
-	for _, actor := range _actors {
-		actor.CleanupActor()
-	}
-	_actors = make([]Actor, 0)
-	_actorLayers = make(map[uint][]Actor)
+	PopState()
+	PushState(state)
+}
 
-	runtime.GC()
+// Push a new state to the top of the stack.
+func PushState(state GameState) {
+	_state.Push(state)
+}
 
-	_state = state
-	_state.InitGameState()
+func PopState() GameState {
+	return _state.Pop()
 }
 
 // NewStateWait() waits for all processes to finish without
@@ -78,3 +73,103 @@ func (s *BaseGameState) UpdateGameState()  {}
 func (s *BaseGameState) CleanupGameState() {}
 
 var _ GameState = (*BaseGameState)(nil)
+
+/* -- stateStack -- */
+
+type stateStack struct {
+	stack *list.List
+}
+
+func (s *stateStack) Empty() bool {
+	return s.stack.Len() == 0
+}
+
+func (s *stateStack) Current() GameState {
+	front := s.stack.Front()
+	if front == nil {
+		return nil
+	}
+	return front.Value.(GameState)
+}
+
+func (s *stateStack) Push(state GameState) {
+	s.stack.PushFront(state)
+	if state != nil {
+		_processes[state] = make([]Process, 0)
+		_views[state] = make([]View, 0)
+		_actors[state] = make([]Actor, 0)
+		_actorLayers[state] = make(map[uint][]Actor)
+		state.InitGameState()
+	}
+}
+
+func (s *stateStack) Pop() GameState {
+	oldState := s.stack.Remove(s.stack.Front()).(GameState)
+
+	if oldState != nil {
+		oldState.CleanupGameState()
+
+		if views, ok := _views[oldState]; ok {
+			for _, view := range views {
+				view.CleanupView()
+			}
+			delete(_views, oldState)
+		}
+
+		if actors, ok := _actors[oldState]; ok {
+			for _, actor := range actors {
+				actor.CleanupActor()
+			}
+			delete(_actors, oldState)
+			delete(_actorLayers, oldState)
+		}
+
+		runtime.GC()
+	}
+
+	return oldState
+}
+
+func (s *stateStack) Update() {
+	cur := s.Current()
+	if cur != nil {
+		cur.UpdateGameState()
+	}
+}
+
+func (s *stateStack) Render(delta float32) {
+	cur := s.Current()
+	if cur != nil {
+		if cur, ok := cur.(RenderableGameState); ok {
+			cur.RenderGameState(delta)
+		}
+	}
+}
+
+func (s *stateStack) Processes() []Process {
+	if processes, ok := _processes[s.Current()]; ok && processes != nil {
+		return processes
+	}
+	return make([]Process, 0)
+}
+
+func (s *stateStack) Views() []View {
+	if views, ok := _views[s.Current()]; ok && views != nil {
+		return views
+	}
+	return make([]View, 0)
+}
+
+func (s *stateStack) Actors() []Actor {
+	if actors, ok := _actors[s.Current()]; ok && actors != nil {
+		return actors
+	}
+	return make([]Actor, 0)
+}
+
+func (s *stateStack) ActorLayers() map[uint][]Actor {
+	if layers, ok := _actorLayers[s.Current()]; ok && layers != nil {
+		return layers
+	}
+	return make(map[uint][]Actor)
+}

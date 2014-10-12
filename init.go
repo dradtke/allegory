@@ -1,6 +1,7 @@
 package allegory
 
 import (
+	"container/list"
 	"github.com/dradtke/allegory/config"
 	"github.com/dradtke/go-allegro/allegro"
 	"github.com/dradtke/go-allegro/allegro/dialog"
@@ -98,14 +99,15 @@ func initialize(state GameState) {
 	_eventQueue.Register(_fpsTimer)
 	_fpsTimer.Start()
 
-	_views = make([]View, 0)
-	_processes = make([]Process, 0)
+    _state = stateStack{list.New()}
+	_processes = make(map[GameState][]Process)
+	_views = make(map[GameState][]View)
+    _actors = make(map[GameState][]Actor)
+    _actorLayers = make(map[GameState]map[uint][]Actor)
+    _messengers = make(map[Process]chan interface{})
+    _pressedKeys = make(map[allegro.KeyCode]bool)
 
-	// Set the state.
-	if state == nil {
-		state = &BaseGameState{}
-	}
-	NewState(state)
+	PushState(state)
 }
 
 // cleanup() destroys some common resources and runs all necessary

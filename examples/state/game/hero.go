@@ -16,7 +16,7 @@ const (
 /* -- View -- */
 
 type HeroView struct {
-	allegory.BaseKeyView
+	allegory.BaseView
 	hero *Hero
 
 	Left  allegro.KeyCode
@@ -59,10 +59,8 @@ func (v *HeroView) UpdateView() {
 }
 
 func (v *HeroView) HandleEvent(event interface{}) bool {
-	v.BaseKeyView.HandleEvent(event)
-
 	if e, ok := event.(allegro.KeyDownEvent); ok && e.KeyCode() == v.Pause {
-		allegory.NewState(new(PausedState))
+		allegory.PushState(new(PausedState))
 		return true
 	}
 
@@ -121,8 +119,8 @@ func (v *HeroView) validateState() {
 	}
 
 	var (
-		left  = v.IsDown[v.Left]
-		right = v.IsDown[v.Right]
+		left  = allegory.KeyDown(v.Left)
+		right = allegory.KeyDown(v.Right)
 	)
 
 	if left && !right {

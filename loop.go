@@ -84,16 +84,22 @@ func loop() {
 		case allegro.DisplayCloseEvent:
 			running = false
 			goto eventHandled
+
+        case allegro.KeyDownEvent:
+            _pressedKeys[e.KeyCode()] = true
+
+        case allegro.KeyUpEvent:
+            _pressedKeys[e.KeyCode()] = false
 		}
 
 		// If the event wasn't handled, pass it to the views.
-		for _, view := range _views {
-			if view, ok := view.(PlayerView); ok {
-				if handled := view.HandleEvent(ev); handled {
-					break
-				}
-			}
-		}
+        for _, view := range _state.Views() {
+            if view, ok := view.(PlayerView); ok {
+                if handled := view.HandleEvent(ev); handled {
+                    break
+                }
+            }
+        }
 
 	eventHandled:
 		if running && ticking && _eventQueue.IsEmpty() {
@@ -103,20 +109,38 @@ func loop() {
 			lag += elapsed
 			for lag >= step {
 				NotifyAllProcesses(&tick{})
-				for _, actor := range _actors {
+				for _, actor := range _state.Actors() {
 					actor.UpdateActor()
 				}
-				for _, view := range _views {
+				for _, view := range _state.Views() {
 					view.UpdateView()
 				}
-				_state.UpdateGameState()
+                _state.Update()
 				lag -= step
 			}
 
 			allegro.ClearToColor(config.BlankColor())
 
+            // Render
+
 			delta := float32(lag / step)
-			render(delta)
+            _state.Render(delta)
+
+			//allegro.HoldBitmapDrawing(true) // ???: why does this kill it?
+            actorLayers := _state.ActorLayers()
+			for i := uint(0); i <= _highestLayer; i++ {
+				layer, ok := actorLayers[i]
+				if !ok {
+					continue
+				}
+				for _, actor := range layer {
+					if actor, ok := actor.(RenderableActor); ok {
+						actor.RenderActor(delta)
+					}
+				}
+			}
+			//allegro.HoldBitmapDrawing(false)
+			allegro.FlipDisplay()
 
 			ticking = false
 		}
@@ -129,28 +153,17 @@ func loop() {
 
 	// Tell all processes to quit immediately, then wait
 	// for them to finish before exiting.
-	NotifyAllProcesses(&quit{})
-	for len(_processes) > 0 {
-		runtime.Gosched()
-	}
-}
-
-func render(delta float32) {
-	if s, ok := _state.(RenderableGameState); ok {
-		s.RenderGameState(delta)
-	}
-	//allegro.HoldBitmapDrawing(true) // ???: why does this kill it?
-	for i := uint(0); i <= _highestLayer; i++ {
-		layer, ok := _actorLayers[i]
-		if !ok {
-			continue
-		}
-		for _, actor := range layer {
-			if actor, ok := actor.(RenderableActor); ok {
-				actor.RenderActor(delta)
-			}
-		}
-	}
-	//allegro.HoldBitmapDrawing(false)
-	allegro.FlipDisplay()
+    for !_state.Empty() {
+        cur := _state.Current()
+        if cur == nil {
+            _state.Pop()
+        } else {
+            NotifyAllProcesses(&quit{})
+            for len(_processes[cur]) > 0 {
+                runtime.Gosched()
+            }
+            _state.Pop()
+            delete(_processes, cur)
+        }
+    }
 }

@@ -64,7 +64,7 @@ func NotifyProcess(p Process, msg interface{}) {
 // NotifyAllProcesses() sends an arbitrary message to all running
 // processes.
 func NotifyAllProcesses(msg interface{}) {
-	for _, process := range _processes {
+	for _, process := range _processes[_state.Current()] {
 		NotifyProcess(process, msg)
 	}
 }
@@ -72,7 +72,7 @@ func NotifyAllProcesses(msg interface{}) {
 // NotifyWhere() sends an arbitrary message to each running process
 // that matches the filter criteria.
 func NotifyWhere(msg interface{}, filter func(Process) bool) {
-	for _, process := range _processes {
+	for _, process := range _processes[_state.Current()] {
 		if filter(process) {
 			NotifyProcess(process, msg)
 		}
@@ -101,18 +101,19 @@ func RunProcess(p Process) {
 		return
 	}
 
+    cur := _state.Current()
 	ch := make(chan interface{})
 	_messengers[p] = ch
 	_processMutex.Lock()
-	_processes = append(_processes, p)
+	_processes[cur] = append(_processes[cur], p)
 	_processMutex.Unlock()
 
-	go func() {
+	go func(cur GameState) {
 		defer func() {
 			_processMutex.Lock()
-			for i, process := range _processes {
+			for i, process := range _processes[cur] {
 				if process == p {
-					_processes = append(_processes[:i], _processes[i+1:]...)
+					_processes[cur] = append(_processes[cur][:i], _processes[cur][i+1:]...)
 					break
 				}
 			}
@@ -168,7 +169,7 @@ func RunProcess(p Process) {
 				RunProcess(next)
 			}
 		}
-	}()
+	}(cur)
 }
 
 type tick struct{}

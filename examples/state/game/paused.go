@@ -53,12 +53,10 @@ type PausedView struct {
 }
 
 func (s *PausedView) HandleEvent(event interface{}) bool {
-	_playingState.heroView.BaseKeyView.HandleEvent(event)
-
 	switch e := event.(type) {
 	case allegro.KeyDownEvent:
 		if e.KeyCode() == allegro.KEY_ENTER {
-			allegory.NewState(_playingState)
+			allegory.PopState()
 			return true
 		}
 	}

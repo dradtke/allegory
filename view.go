@@ -1,7 +1,6 @@
 package allegory
 
 import (
-	"github.com/dradtke/go-allegro/allegro"
 	"reflect"
 )
 
@@ -42,55 +41,28 @@ func (v *BaseView) CleanupView() {}
 
 var _ View = (*BaseView)(nil)
 
-// BaseKeyView provides an IsDown field that maps from an Allegro keycode
-// to whether or not that key is currently pressed.
-type BaseKeyView struct {
-	BaseView
-	Initialized bool
-	IsDown      map[allegro.KeyCode]bool
-}
-
-func (v *BaseKeyView) HandleEvent(event interface{}) bool {
-	switch e := event.(type) {
-	case allegro.KeyDownEvent:
-		v.IsDown[e.KeyCode()] = true
-	case allegro.KeyUpEvent:
-		v.IsDown[e.KeyCode()] = false
-	}
-	return false
-}
-
-var _ PlayerView = (*BaseKeyView)(nil)
-
 // AddView() registers a new view.
 func AddView(view View) {
 	viewVal := reflect.ValueOf(view)
 	for viewVal.Kind() == reflect.Interface || viewVal.Kind() == reflect.Ptr {
 		viewVal = viewVal.Elem()
 	}
-	if base := viewVal.FieldByName("BaseKeyView"); base.IsValid() {
-		if inited := base.FieldByName("Initialized"); inited.IsValid() && inited.Interface().(bool) == false {
-			if isDown := base.FieldByName("IsDown"); isDown.IsValid() {
-				isDown.Set(reflect.MakeMap(isDown.Type()))
-			}
-			inited.Set(reflect.ValueOf(true))
-		}
-		viewVal = base
-	}
+    cur := _state.Current()
 	if base := viewVal.FieldByName("BaseView"); base.IsValid() {
 		if s := base.FieldByName("State"); s.IsValid() && s.Type().Implements(stateType) {
-			s.Set(reflect.ValueOf(_state))
+			s.Set(reflect.ValueOf(cur))
 		}
 	}
 	view.InitView()
-	_views = append(_views, view)
+	_views[cur] = append(_views[cur], view)
 }
 
 func RemoveView(view View) {
-	for i, v := range _views {
+    cur := _state.Current()
+	for i, v := range _views[cur] {
 		if v == view {
 			view.CleanupView()
-			_views = append(_views[:i], _views[i+1:]...)
+			_views[cur] = append(_views[cur][:i], _views[cur][i+1:]...)
 			return
 		}
 	}

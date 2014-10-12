@@ -5,10 +5,6 @@ import (
 	"github.com/dradtke/allegory/cache"
 )
 
-var (
-	_playingState *PlayingState
-)
-
 type PlayingState struct {
 	allegory.BaseGameState
 
@@ -36,6 +32,4 @@ func (s *PlayingState) InitGameState() {
 		s.heroView.InitConfig(cfg)
 	}
 	allegory.AddView(s.heroView)
-
-	_playingState = s
 }

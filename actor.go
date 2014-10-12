@@ -6,14 +6,19 @@ import (
 )
 
 func DestroyActor(a Actor) {
-	for i, actor := range _actors {
+    cur := _state.Current()
+    if cur == nil {
+        return
+    }
+    actors := _state.Actors()
+	for i, actor := range actors {
 		if actor == a {
-			_actors = append(_actors[:i], _actors[i+1:]...)
+			actors = append(actors[:i], actors[i+1:]...)
 			break
 		}
 	}
 	for i := uint(0); i < _highestLayer; i++ {
-		layer, ok := _actorLayers[i]
+		layer, ok := _actorLayers[cur][i]
 		if !ok {
 			continue
 		}
@@ -22,7 +27,7 @@ func DestroyActor(a Actor) {
 				layer = append(layer[:j], layer[j+1:]...)
 			}
 		}
-		_actorLayers[i] = layer
+		_actorLayers[cur][i] = layer
 	}
 }
 
@@ -143,11 +148,15 @@ var _ ActorState = (*BaseActorState)(nil)
 /* -- Related methods -- */
 
 func AddActor(layer uint, actor Actor) {
-	_actors = append(_actors, actor)
-	if l, ok := _actorLayers[layer]; ok {
+    cur := _state.Current()
+    if cur == nil {
+        return
+    }
+	_actors[cur] = append(_actors[cur], actor)
+	if l, ok := _actorLayers[cur][layer]; ok {
 		l = append(l, actor)
 	} else {
-		_actorLayers[layer] = []Actor{actor}
+		_actorLayers[cur][layer] = []Actor{actor}
 	}
 	if layer > _highestLayer {
 		_highestLayer = layer

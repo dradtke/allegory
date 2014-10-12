@@ -9,6 +9,11 @@ import (
 	"unicode"
 )
 
+// Returns true if the key is being held down.
+func KeyDown(keyCode allegro.KeyCode) bool {
+    return _pressedKeys[keyCode]
+}
+
 // After() takes a list of functions and kicks each one off in its own goroutine,
 // then calls the callback once they've all finished. Everything is run
 // in a separate goroutine, so After() returns almost immediately.
