@@ -16,6 +16,16 @@ type GameState interface {
 	// Called once per frame to perform any necessary updates.
 	UpdateGameState()
 
+	// Called when a state is pushed over this one on the stack.
+	// Processes are automatically paused, but this can be used
+	// to take care of other tasks that are process-independent.
+	OnPause()
+
+	// Called when the state overriding this one was popped off the
+	// stack. Useful for validating the game state when using
+	// an event-based approach.
+	OnResume()
+
 	// Perform cleanup; this method is called once, when the state
 	// has been replaced by another one.
 	CleanupGameState()
@@ -31,6 +41,8 @@ type RenderableGameState interface {
 
 // NewState() changes the state, regardless of the status of currently
 // running processes.
+// TODO: rewrite this so that it's not in terms of PopState() and PushState();
+// this causes too many calls to OnPause() and OnResume().
 func NewState(state GameState) {
 	PopState()
 	PushState(state)
@@ -70,6 +82,8 @@ type BaseGameState struct{}
 
 func (s *BaseGameState) InitGameState()    {}
 func (s *BaseGameState) UpdateGameState()  {}
+func (s *BaseGameState) OnPause()          {}
+func (s *BaseGameState) OnResume()         {}
 func (s *BaseGameState) CleanupGameState() {}
 
 var _ GameState = (*BaseGameState)(nil)
@@ -93,7 +107,13 @@ func (s *stateStack) Current() GameState {
 }
 
 func (s *stateStack) Push(state GameState) {
+	cur := s.Current()
+	if cur != nil {
+		cur.OnPause()
+	}
+
 	s.stack.PushFront(state)
+
 	if state != nil {
 		_processes[state] = make([]Process, 0)
 		_views[state] = make([]View, 0)
@@ -125,6 +145,10 @@ func (s *stateStack) Pop() GameState {
 		}
 
 		runtime.GC()
+	}
+
+	if cur := s.Current(); cur != nil {
+		cur.OnResume()
 	}
 
 	return oldState
