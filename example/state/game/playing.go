@@ -9,7 +9,7 @@ import (
 type PlayingState struct {
 	allegory.BaseGameState
 
-	hero     *hero.Hero
+	hero *hero.Hero
 }
 
 func (s *PlayingState) InitGameState() {
