@@ -5,32 +5,6 @@ import (
 	"reflect"
 )
 
-func DestroyActor(a Actor) {
-    cur := _state.Current()
-    if cur == nil {
-        return
-    }
-    actors := _state.Actors()
-	for i, actor := range actors {
-		if actor == a {
-			actors = append(actors[:i], actors[i+1:]...)
-			break
-		}
-	}
-	for i := uint(0); i < _highestLayer; i++ {
-		layer, ok := _actorLayers[cur][i]
-		if !ok {
-			continue
-		}
-		for j, actor := range layer {
-			if actor == a {
-				layer = append(layer[:j], layer[j+1:]...)
-			}
-		}
-		_actorLayers[cur][i] = layer
-	}
-}
-
 /* -- Actor Interfaces -- */
 
 type Actor interface {
@@ -168,8 +142,28 @@ func AddActor(layer uint, actor Actor) {
 	actor.InitActor()
 }
 
-func initStatefulActor(stateful, parent reflect.Value) {
-	if parent.Type().Implements(actorType) {
-		stateful.FieldByName("Parent").Set(parent)
+func DestroyActor(a Actor) {
+    cur := _state.Current()
+    if cur == nil {
+        return
+    }
+    actors := _state.Actors()
+	for i, actor := range actors {
+		if actor == a {
+			actors = append(actors[:i], actors[i+1:]...)
+			break
+		}
+	}
+	for i := uint(0); i < _highestLayer; i++ {
+		layer, ok := _actorLayers[cur][i]
+		if !ok {
+			continue
+		}
+		for j, actor := range layer {
+			if actor == a {
+				layer = append(layer[:j], layer[j+1:]...)
+			}
+		}
+		_actorLayers[cur][i] = layer
 	}
 }
