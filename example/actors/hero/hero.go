@@ -1,9 +1,9 @@
-package game
+package hero
 
 import (
 	"github.com/dradtke/allegory"
 	"github.com/dradtke/allegory/cache"
-	"github.com/dradtke/allegory/examples/util"
+	"github.com/dradtke/allegory/example/util"
 	"github.com/dradtke/go-allegro/allegro"
 	"math"
 	"strconv"
@@ -23,9 +23,18 @@ type HeroView struct {
 	Right allegro.KeyCode
 	Jump  allegro.KeyCode
 	Pause allegro.KeyCode
+
+	PauseGame func()
 }
 
-func (v *HeroView) InitConfig(cfg *allegro.Config) {
+func NewHeroView(hero *Hero, pauseGame func()) *HeroView {
+	v := new(HeroView)
+	v.hero = hero
+	v.PauseGame = pauseGame
+	return v
+}
+
+func (v *HeroView) InitConfig(cfg *allegro.Config) *HeroView {
 	if left, err := cfg.IntValue("Controls", "left"); err == nil {
 		v.Left = allegro.KeyCode(left)
 	} else {
@@ -49,18 +58,20 @@ func (v *HeroView) InitConfig(cfg *allegro.Config) {
 	} else {
 		panic(err)
 	}
+
+	return v
 }
 
 func (v *HeroView) UpdateView() {
-	if _, ok := v.hero.State.(*transitioning); ok || v.hero.needsStateValidation {
-		v.validateState()
-		v.hero.needsStateValidation = false
+	if v.hero.NeedsStateValidation {
+		v.hero.ChangeState(v.setGroundState())
+		v.hero.NeedsStateValidation = false
 	}
 }
 
 func (v *HeroView) HandleEvent(event interface{}) bool {
 	if e, ok := event.(allegro.KeyDownEvent); ok && e.KeyCode() == v.Pause {
-		allegory.PushState(new(PausedState))
+		v.PauseGame()
 		return true
 	}
 
@@ -112,23 +123,18 @@ func (v *HeroView) HandleEvent(event interface{}) bool {
 	return false
 }
 
-func (v *HeroView) validateState() {
-	if _, ok := v.hero.State.(*Jumping); ok {
-		// remain jumping
-		return
-	}
-
+func (v *HeroView) setGroundState() allegory.ActorState {
 	var (
 		left  = allegory.KeyDown(v.Left)
 		right = allegory.KeyDown(v.Right)
 	)
 
 	if left && !right {
-		v.hero.HandleCommand(&Walk{-1})
+        return v.hero.walk(-1)
 	} else if right && !left {
-		v.hero.HandleCommand(&Walk{1})
+        return v.hero.walk(1)
 	} else {
-		v.hero.HandleCommand(&Stand{})
+        return v.hero.stand()
 	}
 }
 
@@ -137,10 +143,16 @@ type Hero struct {
 	GroundY float32
 	dir     int8 // 1 for right, -1 for left
 
-	needsStateValidation bool
+	NeedsStateValidation bool
 
 	// configurable values
 	Jumpspeed, Gravity, Walkspeed float32
+}
+
+func NewHero() *Hero {
+	hero := new(Hero)
+	hero.State = NewStanding(hero)
+	return hero
 }
 
 func (h *Hero) InitActor() {
@@ -157,15 +169,20 @@ func (h *Hero) InitActor() {
 func (h *Hero) HandleCommand(cmd interface{}) {
 	switch cmd := cmd.(type) {
 	case *Stand:
-		h.stand()
+		h.ChangeState(h.stand())
 	case *Walk:
-		h.walk(cmd.dir)
+        if walking := h.walk(cmd.dir); walking != nil {
+            h.ChangeState(walking)
+        }
 	case *Jump:
-		h.jump(cmd.Intertia)
+        jumping := h.jump(cmd.Inertia)
+        if jumping != nil {
+            h.ChangeState(jumping)
+        }
 	}
 }
 
-func (h *Hero) InitConfig(cfg *allegro.Config) {
+func (h *Hero) InitConfig(cfg *allegro.Config) *Hero {
 	if jumpspeed, err := cfg.Float32Value("Hero", "jumpspeed"); err == nil {
 		h.Jumpspeed = jumpspeed
 	} else {
@@ -183,6 +200,8 @@ func (h *Hero) InitConfig(cfg *allegro.Config) {
 	} else {
 		panic(err)
 	}
+
+	return h
 }
 
 /* -- Walking -- */
@@ -236,13 +255,13 @@ func (s *Walking) RenderActorState(delta float32) {
 	s.animation.CurrentFrame().Draw(x, y, util.DirToFlags(s.hero.dir))
 }
 
-func (h *Hero) walk(dir int8) {
+func (h *Hero) walk(dir int8) allegory.ActorState {
 	if _, ok := h.State.(*Walking); ok && h.dir == dir {
-		return
+		return nil
 	}
 	walking := NewWalking(h)
 	walking.dir = dir
-	h.ChangeState(walking)
+    return walking
 }
 
 /* -- Standing -- */
@@ -272,10 +291,8 @@ func (s *Standing) RenderActorState(delta float32) {
 	s.image.Draw(x, y, util.DirToFlags(s.hero.dir))
 }
 
-func (h *Hero) stand() {
-	if _, ok := h.State.(*Standing); !ok {
-		h.ChangeState(NewStanding(h))
-	}
+func (h *Hero) stand() allegory.ActorState {
+    return NewStanding(h)
 }
 
 /* -- Jumping -- */
@@ -304,7 +321,8 @@ func (s *Jumping) UpdateActorState() allegory.ActorState {
 	s.hero.Move(s.hero.Walkspeed*float32(s.inertia), s.jumpspeed)
 	if s.hero.Y >= s.hero.GroundY {
 		s.hero.Y = s.hero.GroundY
-		return new(transitioning)
+        s.hero.NeedsStateValidation = true
+		return s.hero.stand()
 	}
 	s.jumpspeed = float32(math.Min(float64(s.hero.Jumpspeed), float64(s.jumpspeed+s.hero.Gravity)))
 	return nil
@@ -315,17 +333,13 @@ func (s *Jumping) RenderActorState(delta float32) {
 	s.image.Draw(x, y, util.DirToFlags(s.hero.dir))
 }
 
-func (a *Hero) jump(inertia int8) {
-	if _, ok := a.State.(*Jumping); ok {
-		return
+func (h *Hero) jump(inertia int8) allegory.ActorState {
+	if _, ok := h.State.(*Jumping); ok {
+		return nil
 	}
-	jumping := NewJumping(a)
+	jumping := NewJumping(h)
 	jumping.inertia = inertia
-	a.ChangeState(jumping)
-}
-
-type transitioning struct {
-	allegory.BaseActorState
+    return jumping
 }
 
 /* -- Commands -- */
@@ -337,7 +351,7 @@ type Walk struct {
 }
 
 type Jump struct {
-	Intertia int8 // same as dir, but 0 if hero was standing
+	Inertia int8 // same as dir, but 0 if hero was standing
 }
 
 var _ allegory.Actor = (*Hero)(nil)

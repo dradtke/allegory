@@ -5,8 +5,8 @@ package main
 import (
 	"github.com/dradtke/allegory"
 	"github.com/dradtke/allegory/config"
-	"github.com/dradtke/allegory/examples/state/game"
-	"github.com/dradtke/allegory/examples/state/loading"
+	"github.com/dradtke/allegory/example/state/game"
+	"github.com/dradtke/allegory/example/state/loading"
 )
 
 func onLoad() {
@@ -19,7 +19,6 @@ func main() {
 	config.SetWindowTitle("Let's Go!")
 	config.SetWindowIcons(loading.IMG_DIR + "/standing.png")
 
-	loading := new(loading.LoadingState)
-	loading.OnLoad = onLoad
+	loading := &loading.LoadingState{*new(allegory.BaseGameState), onLoad}
 	allegory.Run(loading)
 }
