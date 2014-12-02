@@ -15,8 +15,6 @@ var (
 // DelayProcess is a process that waits a set amount of time,
 // then takes action.
 type DelayProcess struct {
-	BaseProcess
-
 	timer uint
 
 	// Delay is the number of ticks
@@ -28,10 +26,10 @@ type DelayProcess struct {
 
 	// Successor is the process to kick off after Activate
 	// is called.
-	Successor Process
+	Successor interface{}
 }
 
-func (p *DelayProcess) Tick() (bool, error) {
+func (p *DelayProcess) tick() (bool, error) {
 	p.timer++
 	if p.timer >= p.Delay {
 		if p.Activate != nil {
@@ -44,15 +42,13 @@ func (p *DelayProcess) Tick() (bool, error) {
 
 // Next() returns a reference to the process to run once
 // the delay for this one is up.
-func (p *DelayProcess) Next() Process {
+func (p *DelayProcess) Next() interface{} {
 	return p.Successor
 }
 
 /* -- AnimationProcess -- */
 
 type AnimationProcess struct {
-	BaseProcess
-
 	timer        uint
 	currentFrame *allegro.Bitmap
 
@@ -65,7 +61,7 @@ type AnimationProcess struct {
 	Repeat, Paused, Reversed bool
 }
 
-func (p *AnimationProcess) InitProcess() error {
+func (p *AnimationProcess) init() error {
 	if p.Frames == nil || len(p.Frames) == 0 {
 		return NoFrames
 	}
@@ -79,7 +75,7 @@ func (p *AnimationProcess) InitProcess() error {
 	return nil
 }
 
-func (p *AnimationProcess) Tick() (bool, error) {
+func (p *AnimationProcess) tick() (bool, error) {
 	if p.Paused {
 		return true, nil
 	}
@@ -107,7 +103,7 @@ func (p *AnimationProcess) Tick() (bool, error) {
 	return true, nil
 }
 
-func (p *AnimationProcess) HandleMessage(msg interface{}) error {
+func (p *AnimationProcess) handleMessage(msg interface{}) error {
 	switch msg.(type) {
 	case *PauseAnimation:
 		p.Paused = true
@@ -119,6 +115,12 @@ func (p *AnimationProcess) HandleMessage(msg interface{}) error {
 	return nil
 }
 
+// CurrentFrame() returns a reference to the current image in the animation
+// sequence. This should be used in your Render() method to draw the
+// animation to the screen:
+//
+//    animation.CurrentFrame().Draw(x, y, allegro.FLIP_NONE)
+//
 func (p *AnimationProcess) CurrentFrame() *allegro.Bitmap {
 	return p.currentFrame
 }

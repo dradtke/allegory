@@ -17,7 +17,7 @@ import (
 // input systems, creating the display, and starting the FPS timer. It also
 // changes the working directory to the package root relative to GOPATH,
 // if one was specified.
-func initialize(state GameState) {
+func initialize(state *gameState) {
 	runtime.LockOSThread()
 	var err error
 
@@ -99,13 +99,13 @@ func initialize(state GameState) {
 	_eventQueue.Register(_fpsTimer)
 	_fpsTimer.Start()
 
-    _state = stateStack{list.New()}
-	_processes = make(map[GameState][]Process)
-	_views = make(map[GameState][]View)
-    _actors = make(map[GameState][]Actor)
-    _actorLayers = make(map[GameState]map[uint][]Actor)
-    _messengers = make(map[Process]chan interface{})
-    _pressedKeys = make(map[allegro.KeyCode]bool)
+	_state = stateStack{list.New()}
+	_processes = make(map[*gameState][]interface{})
+	_actors = make(map[*gameState][]interface{})
+	_actorLayers = make(map[*gameState]map[uint][]interface{})
+	_actorStates = make(map[interface{}]interface{})
+	_messengers = make(map[interface{}]chan interface{})
+	_pressedKeys = make(map[allegro.KeyCode]bool)
 
 	PushState(state)
 }
@@ -132,9 +132,13 @@ func cleanup() {
 
 // Run() initializes Allegro and Allegory and kicks off the main game loop.
 // It won't return until the game ends.
-func Run(initialState GameState) {
+func Run(initialState StateID) {
 	allegro.Run(func() {
-		initialize(initialState)
+		state, ok := _stateMap[initialState]
+		if !ok {
+			Errorf("allegory.Run() called with invalid state id: %d", initialState)
+		}
+		initialize(state)
 		defer cleanup()
 		loop()
 	})

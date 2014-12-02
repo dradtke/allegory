@@ -49,21 +49,22 @@ func ReadConfig(cfg *allegro.Config, section string, dest interface{}) {
 
 	n := destVal.NumField()
 	for i := 0; i < n; i++ {
-		field := destVal.Field(i)
-		// TODO: convert field name from camel-case to snake-case,
-		// then find the corresponding value in the config, convert it,
-		// and save it.
-		// Probably a good idea to support both the camel-case and snake-case
-		// options.
-		name := field.Type().Name()
+		field := destVal.Type().Field(i)
+		fieldVal := destVal.Field(i)
+
+		name := field.Tag.Get("cfg")
+		if name == "" {
+			name = field.Name
+		}
+
 		if val, err := cfg.Value(section, name); err == nil {
-			saveToField(field, val)
+			saveToField(fieldVal, val)
 			continue
 		}
 
 		name = camelToSnake(name)
 		if val, err := cfg.Value(section, name); err == nil {
-			saveToField(field, val)
+			saveToField(fieldVal, val)
 			continue
 		}
 	}
@@ -73,70 +74,70 @@ func ReadConfig(cfg *allegro.Config, section string, dest interface{}) {
 func saveToField(fieldVal reflect.Value, data string) error {
 	switch fieldVal.Kind() {
 	case reflect.Int:
-		i, err := strconv.ParseInt(data, 10, 64)
+		i, err := strconv.ParseInt(data, 0, 64)
 		if err != nil {
 			return err
 		}
 		fieldVal.Set(reflect.ValueOf(int(i)))
 
 	case reflect.Int8:
-		i, err := strconv.ParseInt(data, 10, 8)
+		i, err := strconv.ParseInt(data, 0, 8)
 		if err != nil {
 			return err
 		}
 		fieldVal.Set(reflect.ValueOf(int8(i)))
 
 	case reflect.Int16:
-		i, err := strconv.ParseInt(data, 10, 16)
+		i, err := strconv.ParseInt(data, 0, 16)
 		if err != nil {
 			return err
 		}
 		fieldVal.Set(reflect.ValueOf(int16(i)))
 
 	case reflect.Int32:
-		i, err := strconv.ParseInt(data, 10, 32)
+		i, err := strconv.ParseInt(data, 0, 32)
 		if err != nil {
 			return err
 		}
 		fieldVal.Set(reflect.ValueOf(int32(i)))
 
 	case reflect.Int64:
-		i, err := strconv.ParseInt(data, 10, 64)
+		i, err := strconv.ParseInt(data, 0, 64)
 		if err != nil {
 			return err
 		}
 		fieldVal.Set(reflect.ValueOf(int64(i)))
 
 	case reflect.Uint:
-		i, err := strconv.ParseUint(data, 10, 64)
+		i, err := strconv.ParseUint(data, 0, 64)
 		if err != nil {
 			return err
 		}
 		fieldVal.Set(reflect.ValueOf(uint(i)))
 
 	case reflect.Uint8:
-		i, err := strconv.ParseUint(data, 10, 8)
+		i, err := strconv.ParseUint(data, 0, 8)
 		if err != nil {
 			return err
 		}
 		fieldVal.Set(reflect.ValueOf(uint8(i)))
 
 	case reflect.Uint16:
-		i, err := strconv.ParseUint(data, 10, 16)
+		i, err := strconv.ParseUint(data, 0, 16)
 		if err != nil {
 			return err
 		}
 		fieldVal.Set(reflect.ValueOf(uint16(i)))
 
 	case reflect.Uint32:
-		i, err := strconv.ParseUint(data, 10, 32)
+		i, err := strconv.ParseUint(data, 0, 32)
 		if err != nil {
 			return err
 		}
 		fieldVal.Set(reflect.ValueOf(uint32(i)))
 
 	case reflect.Uint64:
-		i, err := strconv.ParseUint(data, 10, 64)
+		i, err := strconv.ParseUint(data, 0, 64)
 		if err != nil {
 			return err
 		}

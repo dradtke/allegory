@@ -3,60 +3,15 @@ package allegory
 import (
 	"fmt"
 	"os"
-	"reflect"
 )
 
-type Process interface {
-	// Do initialization on this process. This is done synchronously
-	// before anything else, and if an error is returned, then
-	// the process isn't kicked off. It should never block.
-	InitProcess() error
-
-	// Handle incoming messages. If a non-nil error value is
-	// returned, then the process immediately quits and no
-	// successors (if any) will be run.
-	HandleMessage(msg interface{}) error
-
-	// Tell the process to step forward one frame.
-	//
-	// Returning a non-nil error value will cause the process
-	// to log the error and quit.
-	//
-	// Otherwise, the boolean return value should be `true` to
-	// indicate that it needs to continue processing, or `false`
-	// to indicate a successful termination, which will cause
-	// its successor, if any, to be run.
-	Tick() (bool, error)
-
-	// Do cleanup after this process exits, but before the
-	// next one (if any) is kicked off.
-	CleanupProcess()
-}
-
-type BaseProcess struct {
-	OnComplete func()
-}
-
-func (p *BaseProcess) InitProcess() error                  { return nil }
-func (p *BaseProcess) HandleMessage(msg interface{}) error { return nil }
-func (p *BaseProcess) Tick() (bool, error)                 { return false, nil }
-func (p *BaseProcess) CleanupProcess()                     {}
-
-var _ Process = (*BaseProcess)(nil)
-
-type ProcessContinuer interface {
-	// NextProcess() is an optional method for processes that
-	// need to kick off another process once they're done.
-	NextProcess() Process
-}
-
 // NotifyProcess() sends an arbitrary message to a process.
-func NotifyProcess(p Process, msg interface{}) {
+func NotifyProcess(proc interface{}, msg interface{}) {
 	defer func() {
 		// don't let closed channels kill the program
 		recover()
 	}()
-	if ch, ok := _messengers[p]; ok {
+	if ch, ok := _messengers[proc]; ok {
 		ch <- msg
 	}
 }
@@ -71,7 +26,7 @@ func NotifyAllProcesses(msg interface{}) {
 
 // NotifyWhere() sends an arbitrary message to each running process
 // that matches the filter criteria.
-func NotifyWhere(msg interface{}, filter func(Process) bool) {
+func NotifyWhere(msg interface{}, filter func(interface{}) bool) {
 	for _, process := range _processes[_state.Current()] {
 		if filter(process) {
 			NotifyProcess(process, msg)
@@ -80,8 +35,8 @@ func NotifyWhere(msg interface{}, filter func(Process) bool) {
 }
 
 // Close() sends a Quit message to a process.
-func Close(p Process) {
-	NotifyProcess(p, &quit{})
+func Close(proc interface{}) {
+	NotifyProcess(proc, &quit{})
 }
 
 // RunProcess() takes a Process and kicks it off in a new
@@ -95,30 +50,40 @@ func Close(p Process) {
 //    2. Tick messages, which simply tell the process to
 //       process one frame.
 //
-func RunProcess(p Process) {
-	if err := p.InitProcess(); err != nil {
-		fmt.Fprintf(os.Stderr, "error during process initialization: %s\n", err.Error())
-		return
+func RunProcess(proc interface{}) {
+	var initFn func() error = nil
+
+	if proc, ok := proc.(privatelyInitializableWithFailure); ok {
+		initFn = proc.init
+	} else if proc, ok := proc.(InitializableWithFailure); ok {
+		initFn = proc.Init
+	}
+
+	if initFn != nil {
+		if err := initFn(); err != nil {
+			fmt.Fprintf(os.Stderr, "error during process initialization: %s\n", err.Error())
+			return
+		}
 	}
 
     cur := _state.Current()
 	ch := make(chan interface{})
-	_messengers[p] = ch
+	_messengers[proc] = ch
 	_processMutex.Lock()
-	_processes[cur] = append(_processes[cur], p)
+	_processes[cur] = append(_processes[cur], proc)
 	_processMutex.Unlock()
 
-	go func(cur GameState) {
+	go func(cur *gameState) {
 		defer func() {
 			_processMutex.Lock()
 			for i, process := range _processes[cur] {
-				if process == p {
+				if process == proc {
 					_processes[cur] = append(_processes[cur][:i], _processes[cur][i+1:]...)
 					break
 				}
 			}
 			_processMutex.Unlock()
-			delete(_messengers, p)
+			delete(_messengers, proc)
 			close(ch)
 		}()
 
@@ -135,37 +100,47 @@ func RunProcess(p Process) {
 				carryOn = false
 
 			case *tick:
-				if alive, err = p.Tick(); err != nil {
-					alive = false
-					carryOn = false
-					fmt.Fprintf(os.Stderr, "Process exited with error message '%s'\n", err.Error())
+				var tickFn func() (bool, error) = nil
+
+				if proc, ok := proc.(privatelyTickable); ok {
+					tickFn = proc.tick
+				} else if proc, ok := proc.(Tickable); ok {
+					tickFn = proc.Tick
+				}
+
+				if tickFn != nil {
+					if alive, err = tickFn(); err != nil {
+						alive = false
+						carryOn = false
+						fmt.Fprintf(os.Stderr, "Process exited with error message '%s'\n", err.Error())
+					}
 				}
 
 			default:
-				if err := p.HandleMessage(msg); err != nil {
-					alive = false
-					carryOn = false
-					fmt.Fprintf(os.Stderr, "Process handled %v with error message '%s'\n", err.Error())
+				var handleMessageFn func(msg interface{}) error = nil
+
+				if proc, ok := proc.(privatelyMessagable); ok {
+					handleMessageFn = proc.handleMessage
+				} else if proc, ok := proc.(Messagable); ok {
+					handleMessageFn = proc.HandleMessage
+				}
+
+				if handleMessageFn != nil {
+					if err := handleMessageFn(msg); err != nil {
+						alive = false
+						carryOn = false
+						fmt.Fprintf(os.Stderr, "Process handled %v with error message '%s'\n", err.Error())
+					}
 				}
 			}
 		}
 
-		p.CleanupProcess()
-
-		processVal := reflect.ValueOf(p)
-		for processVal.Kind() == reflect.Ptr || processVal.Kind() == reflect.Interface {
-			processVal = processVal.Elem()
-		}
-		if base := processVal.FieldByName("BaseProcess"); base.IsValid() {
-			if b, ok := base.Interface().(BaseProcess); ok {
-				if b.OnComplete != nil {
-					b.OnComplete()
-				}
-			}
+		if proc, ok := proc.(Cleanupable); ok {
+			proc.Cleanup()
 		}
 
-		if p, ok := p.(ProcessContinuer); carryOn && ok {
-			if next := p.NextProcess(); next != nil {
+		if proc, ok := proc.(Continuable); carryOn && ok {
+			if next := proc.Next(); next != nil {
 				RunProcess(next)
 			}
 		}

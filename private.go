@@ -11,13 +11,14 @@ var (
 	_eventQueue   *allegro.EventQueue // the global event queue
 	_fpsTimer     *allegro.Timer      // the FPS timer; each tick signals a new frame
 	_state        stateStack
+	_stateMap     map[StateID]*gameState
 
-	_processes   map[GameState][]Process // an internal list of running processes
-	_views       map[GameState][]View    // an internal list of game views
-	_actors      map[GameState][]Actor
-	_actorLayers map[GameState]map[uint][]Actor
+	_processes   map[*gameState][]interface{} // an internal list of running processes
+	_actors      map[*gameState][]interface{}
+	_actorLayers map[*gameState]map[uint][]interface{}
+	_actorStates map[interface{}]interface{}
 
-	_messengers map[Process]chan interface{} // an internal map from process to message channel
+	_messengers map[interface{}]chan interface{} // an internal map from process to message channel
 	_atexit     []func()
 
 	_actorsMutex  sync.Mutex
@@ -40,7 +41,7 @@ func EventQueue() *allegro.EventQueue {
 }
 
 // State() returns a reference to the game's current state.
-func State() GameState {
+func State() *gameState {
 	return _state.Current()
 }
 

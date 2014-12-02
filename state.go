@@ -5,61 +5,77 @@ import (
 	"runtime"
 )
 
-// GameState is an interface to the game's current state. Only one game
-// state is active at any point in time, and states can be changed
-// by using one of the NewState*() functions.
-type GameState interface {
-	// Perform initialization; this method is called once, when the
-	// state becomes the game state.
-	InitGameState()
+type StateID uint
 
-	// Called once per frame to perform any necessary updates.
-	UpdateGameState()
-
-	// Called when a state is pushed over this one on the stack.
-	// Processes are automatically paused, but this can be used
-	// to take care of other tasks that are process-independent.
-	OnPause()
-
-	// Called when the state overriding this one was popped off the
-	// stack. Useful for validating the game state when using
-	// an event-based approach.
-	OnResume()
-
-	// Perform cleanup; this method is called once, when the state
-	// has been replaced by another one.
-	CleanupGameState()
+type gameState struct {
+	init func()
+	update func()
+	handleEvent func(event interface{}) bool
+	render func(delta float32)
+	cleanup func()
+	// TODO: add pause/resume/others
 }
 
-type RenderableGameState interface {
-	GameState
+func DefState(id StateID) *gameState {
+	s := new(gameState)
+	s.init = func() {}
+	s.update = func() {}
+	s.handleEvent = func(_ interface{}) bool { return false }
+	s.render = func(_ float32) {}
+	s.cleanup = func() {}
+	if _stateMap == nil {
+		_stateMap = make(map[StateID]*gameState)
+	}
+	_stateMap[id] = s
+	return s
+}
 
-	// Render; this is called (ideally) once per frame, with a delta
-	// value calculated based on lag.
-	RenderGameState(delta float32)
+func (s *gameState) Init(f func()) *gameState {
+	s.init = f
+	return s
+}
+
+func (s *gameState) Update(f func()) *gameState {
+	s.update = f
+	return s
+}
+
+func (s *gameState) HandleEvent(f func(event interface{}) bool) *gameState {
+	s.handleEvent = f
+	return s
+}
+
+func (s *gameState) Render(f func(delta float32)) *gameState {
+	s.render = f
+	return s
+}
+
+func (s *gameState) Cleanup(f func()) *gameState {
+	s.cleanup = f
+	return s
 }
 
 // NewState() changes the state, regardless of the status of currently
 // running processes.
 // TODO: rewrite this so that it's not in terms of PopState() and PushState();
 // this causes too many calls to OnPause() and OnResume().
-func NewState(state GameState) {
+func NewState(state *gameState) {
 	PopState()
 	PushState(state)
 }
 
 // Push a new state to the top of the stack.
-func PushState(state GameState) {
+func PushState(state *gameState) {
 	_state.Push(state)
 }
 
-func PopState() GameState {
+func PopState() *gameState {
 	return _state.Pop()
 }
 
 // NewStateWait() waits for all processes to finish without
 // blocking the current goroutine, then changes the game state.
-func NewStateWait(state GameState) {
+func NewStateWait(state *gameState) {
 	go func() {
 		for len(_processes) > 0 {
 			runtime.Gosched()
@@ -70,23 +86,13 @@ func NewStateWait(state GameState) {
 
 // NewStateNow() tells all processes to quit,
 // waits for them to finish, then changes the game state.
-func NewStateNow(state GameState) {
+func NewStateNow(state *gameState) {
 	NotifyAllProcesses(&quit{})
 	for len(_processes) > 0 {
 		runtime.Gosched()
 	}
 	NewState(state)
 }
-
-type BaseGameState struct{}
-
-func (s *BaseGameState) InitGameState()    {}
-func (s *BaseGameState) UpdateGameState()  {}
-func (s *BaseGameState) OnPause()          {}
-func (s *BaseGameState) OnResume()         {}
-func (s *BaseGameState) CleanupGameState() {}
-
-var _ GameState = (*BaseGameState)(nil)
 
 /* -- stateStack -- */
 
@@ -98,47 +104,41 @@ func (s *stateStack) Empty() bool {
 	return s.stack.Len() == 0
 }
 
-func (s *stateStack) Current() GameState {
+func (s *stateStack) Current() *gameState {
 	front := s.stack.Front()
 	if front == nil {
 		return nil
 	}
-	return front.Value.(GameState)
+	return front.Value.(*gameState)
 }
 
-func (s *stateStack) Push(state GameState) {
+func (s *stateStack) Push(state *gameState) {
 	cur := s.Current()
 	if cur != nil {
-		cur.OnPause()
+		//cur.OnPause()
 	}
 
 	s.stack.PushFront(state)
 
 	if state != nil {
-		_processes[state] = make([]Process, 0)
-		_views[state] = make([]View, 0)
-		_actors[state] = make([]Actor, 0)
-		_actorLayers[state] = make(map[uint][]Actor)
-		state.InitGameState()
+		_processes[state] = make([]interface{}, 0)
+		_actors[state] = make([]interface{}, 0)
+		_actorLayers[state] = make(map[uint][]interface{})
+		state.init()
 	}
 }
 
-func (s *stateStack) Pop() GameState {
-	oldState := s.stack.Remove(s.stack.Front()).(GameState)
+func (s *stateStack) Pop() *gameState {
+	oldState := s.stack.Remove(s.stack.Front()).(*gameState)
 
 	if oldState != nil {
-		oldState.CleanupGameState()
-
-		if views, ok := _views[oldState]; ok {
-			for _, view := range views {
-				view.CleanupView()
-			}
-			delete(_views, oldState)
-		}
+		oldState.cleanup()
 
 		if actors, ok := _actors[oldState]; ok {
 			for _, actor := range actors {
-				actor.CleanupActor()
+				if actor, ok := actor.(Cleanupable); ok {
+					actor.Cleanup()
+				}
 			}
 			delete(_actors, oldState)
 			delete(_actorLayers, oldState)
@@ -148,52 +148,48 @@ func (s *stateStack) Pop() GameState {
 	}
 
 	if cur := s.Current(); cur != nil {
-		cur.OnResume()
+		//cur.OnResume()
 	}
 
 	return oldState
 }
 
 func (s *stateStack) Update() {
-	cur := s.Current()
-	if cur != nil {
-		cur.UpdateGameState()
+	if cur := s.Current(); cur != nil {
+		cur.update()
 	}
+}
+
+func (s *stateStack) HandleEvent(event interface{}) bool {
+	if cur := s.Current(); cur != nil {
+		return cur.handleEvent(event)
+	}
+	return false
 }
 
 func (s *stateStack) Render(delta float32) {
-	cur := s.Current()
-	if cur != nil {
-		if cur, ok := cur.(RenderableGameState); ok {
-			cur.RenderGameState(delta)
-		}
+	if cur := s.Current(); cur != nil {
+		cur.render(delta)
 	}
 }
 
-func (s *stateStack) Processes() []Process {
+func (s *stateStack) Processes() []interface{} {
 	if processes, ok := _processes[s.Current()]; ok && processes != nil {
 		return processes
 	}
-	return make([]Process, 0)
+	return make([]interface{}, 0)
 }
 
-func (s *stateStack) Views() []View {
-	if views, ok := _views[s.Current()]; ok && views != nil {
-		return views
-	}
-	return make([]View, 0)
-}
-
-func (s *stateStack) Actors() []Actor {
+func (s *stateStack) Actors() []interface{} {
 	if actors, ok := _actors[s.Current()]; ok && actors != nil {
 		return actors
 	}
-	return make([]Actor, 0)
+	return make([]interface{}, 0)
 }
 
-func (s *stateStack) ActorLayers() map[uint][]Actor {
+func (s *stateStack) ActorLayers() map[uint][]interface{} {
 	if layers, ok := _actorLayers[s.Current()]; ok && layers != nil {
 		return layers
 	}
-	return make(map[uint][]Actor)
+	return make(map[uint][]interface{})
 }

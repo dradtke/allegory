@@ -72,36 +72,31 @@ func loop() {
 	Debug("Starting Up...")
 
 	for running {
-		ev := _eventQueue.WaitForEvent(&_event)
+		var (
+			event   = _eventQueue.WaitForEvent(&_event)
+			handled = false
+		)
 
-		switch e := ev.(type) {
+		switch e := event.(type) {
 		case allegro.TimerEvent:
 			if e.Source() == _fpsTimer {
-				ticking = true
-				goto eventHandled
+				ticking, handled = true, true
 			}
 
 		case allegro.DisplayCloseEvent:
-			running = false
-			goto eventHandled
+			running, handled = false, true
 
-        case allegro.KeyDownEvent:
-            _pressedKeys[e.KeyCode()] = true
+		case allegro.KeyDownEvent:
+			_pressedKeys[e.KeyCode()] = true
 
-        case allegro.KeyUpEvent:
-            _pressedKeys[e.KeyCode()] = false
+		case allegro.KeyUpEvent:
+			_pressedKeys[e.KeyCode()] = false
 		}
 
-		// If the event wasn't handled, pass it to the views.
-        for _, view := range _state.Views() {
-            if view, ok := view.(PlayerView); ok {
-                if handled := view.HandleEvent(ev); handled {
-                    break
-                }
-            }
-        }
+		if !handled {
+			_state.HandleEvent(event)
+		}
 
-	eventHandled:
 		if running && ticking && _eventQueue.IsEmpty() {
 			now = time.Now()
 			elapsed = now.Sub(lastUpdate)
@@ -110,32 +105,54 @@ func loop() {
 			for lag >= step {
 				NotifyAllProcesses(&tick{})
 				for _, actor := range _state.Actors() {
-					actor.UpdateActor()
+					var updated bool
+					if state, ok := _actorStates[actor]; ok {
+						if state, ok := state.(UpdateableStatefully); ok {
+							if newState := state.Update(); newState != nil {
+								SetActorState(actor, newState)
+							}
+							updated = true
+						} else if state, ok := state.(Updateable); ok {
+							state.Update()
+							updated = true
+						}
+					}
+					if !updated {
+						if actor, ok := actor.(Updateable); ok {
+							actor.Update()
+						}
+					}
 				}
-				for _, view := range _state.Views() {
-					view.UpdateView()
-				}
-                _state.Update()
+				_state.Update()
 				lag -= step
 			}
 
 			allegro.ClearToColor(config.BlankColor())
 
-            // Render
+			// Render
 
 			delta := float32(lag / step)
-            _state.Render(delta)
+			_state.Render(delta)
 
 			//allegro.HoldBitmapDrawing(true) // ???: why does this kill it?
-            actorLayers := _state.ActorLayers()
+			actorLayers := _state.ActorLayers()
 			for i := uint(0); i <= _highestLayer; i++ {
 				layer, ok := actorLayers[i]
 				if !ok {
 					continue
 				}
 				for _, actor := range layer {
-					if actor, ok := actor.(RenderableActor); ok {
-						actor.RenderActor(delta)
+					var rendered bool
+					if state, ok := _actorStates[actor]; ok {
+						if state, ok := state.(Renderable); ok {
+							state.Render(delta)
+							rendered = true
+						}
+					}
+					if !rendered {
+						if actor, ok := actor.(Renderable); ok {
+							actor.Render(delta)
+						}
 					}
 				}
 			}
@@ -153,17 +170,17 @@ func loop() {
 
 	// Tell all processes to quit immediately, then wait
 	// for them to finish before exiting.
-    for !_state.Empty() {
-        cur := _state.Current()
-        if cur == nil {
-            _state.Pop()
-        } else {
-            NotifyAllProcesses(&quit{})
-            for len(_processes[cur]) > 0 {
-                runtime.Gosched()
-            }
-            _state.Pop()
-            delete(_processes, cur)
-        }
-    }
+	for !_state.Empty() {
+		cur := _state.Current()
+		if cur == nil {
+			_state.Pop()
+		} else {
+			NotifyAllProcesses(&quit{})
+			for len(_processes[cur]) > 0 {
+				runtime.Gosched()
+			}
+			_state.Pop()
+			delete(_processes, cur)
+		}
+	}
 }
