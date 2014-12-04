@@ -2,9 +2,11 @@ package playing
 
 import (
 	"github.com/dradtke/allegory"
+	"github.com/dradtke/allegory/bus"
 	"github.com/dradtke/allegory/cache"
 	"github.com/dradtke/allegory/example/actors"
 	"github.com/dradtke/allegory/example/g"
+	"github.com/dradtke/allegory/example/signals"
 	"github.com/dradtke/go-allegro/allegro"
 )
 
@@ -39,6 +41,10 @@ func Init() {
 	_hero.X, _hero.Y = 200, 200
 	allegory.ReadConfig(cfg, "Hero", _hero)
 	allegory.AddActor(1, _hero, _hero.Standing(1))
+
+	bus.AddListener(signals.HERO_LANDED, func() {
+		allegory.Debug("The hero has landed!")
+	})
 }
 
 func HandleEvent(event interface{}) bool {

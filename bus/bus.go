@@ -143,9 +143,23 @@ func RemoveListener(eventType EventId, f interface{}) error {
 	return errors.New("event handler not found")
 }
 
-// Clear() unregisters all handlers on the bus for all event types,
+// Clear() unregisters all handlers on the bus for a particular event type,
 // then immediately runs a garbage collection.
-func Clear() {
+func Clear(eventType EventId) {
+	listeners, ok := _bus[eventType]
+	if !ok {
+		return
+	}
+	for e := listeners.Front(); e != nil; e = e.Next() {
+		delete(_bus, eventType)
+	}
+	listeners.Init()
+	runtime.GC()
+}
+
+// ClearAll() unregisters all handlers on the bus for all event types,
+// then immediately runs a garbage collection.
+func ClearAll() {
 	for eventType, listeners := range _bus {
 		for e := listeners.Front(); e != nil; e = e.Next() {
 			delete(_curried, e)

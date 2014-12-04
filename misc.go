@@ -2,6 +2,7 @@ package allegory
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/dradtke/go-allegro/allegro"
 	"reflect"
 	"strconv"
@@ -56,6 +57,7 @@ func ReadConfig(cfg *allegro.Config, section string, dest interface{}) {
 		if name == "" {
 			name = field.Name
 		}
+		Debug(name)
 
 		if val, err := cfg.Value(section, name); err == nil {
 			saveToField(fieldVal, val)
@@ -64,7 +66,10 @@ func ReadConfig(cfg *allegro.Config, section string, dest interface{}) {
 
 		name = camelToSnake(name)
 		if val, err := cfg.Value(section, name); err == nil {
-			saveToField(fieldVal, val)
+			err := saveToField(fieldVal, val)
+			if err != nil {
+				Fatal(err)
+			}
 			continue
 		}
 	}
@@ -143,7 +148,22 @@ func saveToField(fieldVal reflect.Value, data string) error {
 		}
 		fieldVal.Set(reflect.ValueOf(uint64(i)))
 
-		// TODO: floats and more
+	case reflect.Float32:
+		i, err := strconv.ParseFloat(data, 32)
+		if err != nil {
+			return err
+		}
+		fieldVal.Set(reflect.ValueOf(float32(i)))
+
+	case reflect.Float64:
+		i, err := strconv.ParseFloat(data, 64)
+		if err != nil {
+			return err
+		}
+		fieldVal.Set(reflect.ValueOf(float64(i)))
+
+	default:
+		return fmt.Errorf("tried to save config value to unsupported variable type: %s", fieldVal.Type().Name())
 	}
 
 	return nil
