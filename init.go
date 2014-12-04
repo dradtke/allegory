@@ -106,8 +106,6 @@ func initialize(state *gameState) {
 	_actorStates = make(map[interface{}]interface{})
 	_messengers = make(map[interface{}]chan interface{})
 	_pressedKeys = make(map[allegro.KeyCode]bool)
-
-	PushState(state)
 }
 
 // cleanup() destroys some common resources and runs all necessary
@@ -134,12 +132,14 @@ func cleanup() {
 // It won't return until the game ends.
 func Run(initialState StateID) {
 	allegro.Run(func() {
+		defer cleanup()
 		state, ok := _stateMap[initialState]
 		if !ok {
-			Errorf("allegory.Run() called with invalid state id: %d", initialState)
+			Errorf("allegory.Run() called with invalid state id: %s", initialState)
+			return
 		}
 		initialize(state)
-		defer cleanup()
+		PushState(initialState)
 		loop()
 	})
 }

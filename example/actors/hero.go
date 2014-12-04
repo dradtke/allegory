@@ -3,7 +3,6 @@ package actors
 import (
 	"github.com/dradtke/allegory"
 	"github.com/dradtke/allegory/cache"
-	"github.com/dradtke/allegory/example/util"
 	"github.com/dradtke/go-allegro/allegro"
 	"strconv"
 )
@@ -34,7 +33,7 @@ type heroStanding struct {
 }
 
 func (h *heroStanding) Render(delta float32) {
-	cache.Image("standing.png").Draw(h.hero.X, h.hero.Y, util.DirToFlags(h.dir))
+	cache.Image("standing.png").Draw(h.hero.X, h.hero.Y, dirToFlags(h.dir))
 }
 
 func (h *heroStanding) HandleEvent(event interface{}) interface{} {
@@ -75,7 +74,7 @@ func (h *heroWalking) Init() {
 
 func (h *heroWalking) Render(delta float32) {
 	x, y := h.hero.CalculatePos(delta)
-	h.animation.CurrentFrame().Draw(x, y, util.DirToFlags(h.dir))
+	h.animation.CurrentFrame().Draw(x, y, dirToFlags(h.dir))
 }
 
 func (h *heroWalking) Update() interface{} {

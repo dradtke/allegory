@@ -5,7 +5,7 @@ import (
 	"runtime"
 )
 
-type StateID uint
+type StateID string
 
 type gameState struct {
 	init func()
@@ -59,13 +59,18 @@ func (s *gameState) Cleanup(f func()) *gameState {
 // running processes.
 // TODO: rewrite this so that it's not in terms of PopState() and PushState();
 // this causes too many calls to OnPause() and OnResume().
-func NewState(state *gameState) {
+func NewState(stateId StateID) {
 	PopState()
-	PushState(state)
+	PushState(stateId)
 }
 
 // Push a new state to the top of the stack.
-func PushState(state *gameState) {
+func PushState(stateId StateID) {
+	state, ok := _stateMap[stateId]
+	if !ok {
+		Errorf("tried to push invalid state '%s'!", stateId)
+		return
+	}
 	_state.Push(state)
 }
 
@@ -75,23 +80,23 @@ func PopState() *gameState {
 
 // NewStateWait() waits for all processes to finish without
 // blocking the current goroutine, then changes the game state.
-func NewStateWait(state *gameState) {
+func NewStateWait(stateId StateID) {
 	go func() {
 		for len(_processes) > 0 {
 			runtime.Gosched()
 		}
-		NewState(state)
+		NewState(stateId)
 	}()
 }
 
 // NewStateNow() tells all processes to quit,
 // waits for them to finish, then changes the game state.
-func NewStateNow(state *gameState) {
+func NewStateNow(stateId StateID) {
 	NotifyAllProcesses(&quit{})
 	for len(_processes) > 0 {
 		runtime.Gosched()
 	}
-	NewState(state)
+	NewState(stateId)
 }
 
 /* -- stateStack -- */

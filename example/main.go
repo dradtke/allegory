@@ -2,15 +2,13 @@ package main
 
 import (
 	"github.com/dradtke/allegory"
-	"github.com/dradtke/allegory/example/g"
 	"github.com/dradtke/allegory/example/playing"
+	"github.com/dradtke/allegory/example/playing/paused"
 )
 
 func main() {
-	allegory.DefState(g.PLAYING).
-		Init(playing.Init).
-		Update(playing.Update).
-		HandleEvent(playing.HandleEvent)
+	playing.Register()
+	paused.Register()
 
-	allegory.Run(g.PLAYING)
+	allegory.Run("playing")
 }

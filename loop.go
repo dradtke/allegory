@@ -69,7 +69,6 @@ func loop() {
 	//defer loopExiting()
 
 	go readStdin()
-	Debug("Starting Up...")
 
 	for running {
 		var (
@@ -162,8 +161,6 @@ func loop() {
 			ticking = false
 		}
 	}
-
-	Debug("...Shutting Down")
 
 	allegro.ClearToColor(config.BlankColor())
 	allegro.FlipDisplay()
