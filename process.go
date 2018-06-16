@@ -66,7 +66,7 @@ func RunProcess(proc interface{}) {
 		}
 	}
 
-    cur := _state.Current()
+	cur := _state.Current()
 	ch := make(chan interface{})
 	_messengers[proc] = ch
 	_processMutex.Lock()

@@ -2,7 +2,7 @@ package allegory
 
 type Actor struct {
 	X, Y, xspeed, yspeed float32
-	Width, Height int
+	Width, Height        int
 }
 
 func (a *Actor) Move(x, y float32) { a.X += x; a.Y += y; a.xspeed, a.yspeed = x, y }
