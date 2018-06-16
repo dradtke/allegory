@@ -8,11 +8,11 @@ import (
 type StateID string
 
 type gameState struct {
-	init func()
-	update func()
+	init        func()
+	update      func()
 	handleEvent func(event interface{}) bool
-	render func(delta float32)
-	cleanup func()
+	render      func(delta float32)
+	cleanup     func()
 	// TODO: add pause/resume/others
 }
 
